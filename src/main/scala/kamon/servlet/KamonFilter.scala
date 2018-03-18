@@ -20,9 +20,10 @@ import javax.servlet._
 import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
 
 import kamon.Kamon
-import kamon.servlet.server.{ServletMetrics, ServletTracing}
+import kamon.servlet.server._
 
 import scala.language.postfixOps
+import scala.util.Try
 
 class KamonFilter extends Filter {
   override def init(filterConfig: FilterConfig): Unit = ()
@@ -36,11 +37,50 @@ class KamonFilter extends Filter {
     val start = Kamon.clock().instant()
 
     ServletMetrics.withMetrics(start, req, res) { metricsContinuation =>
-      ServletTracing.withTracing(req, res, metricsContinuation) {
-        chain.doFilter(request, response)
+      ServletTracing.withTracing(req, res, metricsContinuation) { tracingContinuation =>
+        process(req, res, tracingContinuation) {
+          chain.doFilter(request, response)
+        }
       }
     } get
 
   }
 
+  private def process(request: HttpServletRequest, response: HttpServletResponse,
+                      tracingContinuation: TracingContinuation)(thunk: => Unit): Try[Unit] = {
+    val result = Try(thunk)
+    onFinish(request, response)(result, tracingContinuation)
+  }
+
+  private def onFinish(request: HttpServletRequest, response: HttpServletResponse): (Try[Unit], TracingContinuation) => Try[Unit] = {
+    if (request.isAsyncStarted) handleAsync(request, response)
+    else                        handleSync(request, response)
+  }
+
+  private def handleAsync(request: HttpServletRequest, response: HttpServletResponse)
+                         (result: Try[Unit], continuation: TracingContinuation): Try[Unit] = {
+    val handler = FromTracingResponseHandler(continuation)
+    request.getAsyncContext.addListener(KamonAsyncListener(handler))
+    result
+  }
+
+  private def handleSync(request: HttpServletRequest, response: HttpServletResponse)
+                        (result: Try[Unit], continuation: TracingContinuation): Try[Unit] = {
+    val handler = FromTracingResponseHandler(continuation)
+    result
+      .map { x => handler.onComplete(); x }
+      .recover {
+        case exc: Throwable =>
+          handler.onError()
+          exc
+      }
+  }
+
+}
+
+case class FromTracingResponseHandler(continuation: TracingContinuation) extends KamonResponseHandler {
+  override def onError(): Unit = continuation.onError(Kamon.clock().instant())
+  override def onComplete(): Unit = continuation.onSuccess(Kamon.clock().instant())
+  override def onStartAsync(): Unit = ()
+  override def onTimeout(): Unit = this.onError()
 }

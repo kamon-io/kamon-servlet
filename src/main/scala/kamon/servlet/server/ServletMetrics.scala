@@ -67,7 +67,7 @@ case class MetricsContinuation(request: HttpServletRequest, response: HttpServle
 
   def onError(end: Instant): Unit = {
     val handler = MetricsResponseHandler(request, response, start, end, serviceMetrics)
-    handler.onComplete()
+    handler.onError()
   }
 }
 
