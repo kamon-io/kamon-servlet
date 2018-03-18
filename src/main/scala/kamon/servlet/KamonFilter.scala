@@ -68,11 +68,14 @@ class KamonFilter extends Filter {
                         (result: Try[Unit], continuation: TracingContinuation): Try[Unit] = {
     val handler = FromTracingResponseHandler(continuation)
     result
-      .map { x => handler.onComplete(); x }
+      .map { value =>
+        handler.onComplete()
+        value
+      }
       .recover {
-        case exc: Throwable =>
+        case error: Throwable =>
           handler.onError()
-          exc
+          error
       }
   }
 

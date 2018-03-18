@@ -31,18 +31,15 @@ object ServletTracing {
   def withTracing(request: HttpServletRequest, response: HttpServletResponse, metricsContinuation: MetricsContinuation)
                  (continuation: TracingContinuation => Try[Unit]): Try[Unit] = {
 
-    val serverSpan = createSpan(request)
-    val scope = Kamon.storeContext(Context.create(Span.ContextKey, serverSpan))
+    val incomingContext = decodeContext(request)
+    val serverSpan = createSpan(incomingContext, request)
 
-    val result = continuation(TracingContinuation(request, response, serverSpan, metricsContinuation))
-
-    scope.close()
-
-    result
+    Kamon.withContext(incomingContext.withKey(Span.ContextKey, serverSpan)) {
+      continuation(TracingContinuation(request, response, serverSpan, metricsContinuation))
+    }
   }
 
-  private def createSpan(request: HttpServletRequest): Span = {
-    val incomingContext = decodeContext(request)
+  private def createSpan(incomingContext: Context, request: HttpServletRequest): Span = {
     val operationName = kamon.servlet.KamonServletSupport.generateOperationName(request)
     Kamon.buildSpan(operationName)
       .asChildOf(incomingContext.get(Span.ContextKey))
