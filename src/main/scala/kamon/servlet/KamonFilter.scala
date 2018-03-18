@@ -19,6 +19,7 @@ package kamon.servlet
 import javax.servlet._
 import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
 
+import kamon.Kamon
 import kamon.servlet.server.{ServletMetrics, ServletTracing}
 
 import scala.language.postfixOps
@@ -32,12 +33,13 @@ class KamonFilter extends Filter {
     val req = request.asInstanceOf[HttpServletRequest]
     val res = response.asInstanceOf[HttpServletResponse]
 
+    val start = Kamon.clock().instant()
 
-    ServletMetrics.withMetrics(req, res) {
-      ServletTracing.withTracing(req, res) {
+    ServletMetrics.withMetrics(start, req, res) { metricsContinuation =>
+      ServletTracing.withTracing(req, res, metricsContinuation) {
         chain.doFilter(request, response)
       }
-    }
+    } get
 
   }
 

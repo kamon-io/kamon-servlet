@@ -29,16 +29,28 @@ import scala.util.Try
 
 object ServletMetrics {
 
-  def withMetrics(request: HttpServletRequest, response: HttpServletResponse)(thunk: => Unit): Unit = {
-
-    val now = Kamon.clock().instant()
+  def withMetrics(start: Instant, request: HttpServletRequest, response: HttpServletResponse)
+                 (continuation: MetricsContinuation => Try[Unit]): Try[Unit] = {
 
     val serviceMetrics = ServiceMetrics(GeneralMetrics(), RequestTimeMetrics(), ResponseTimeMetrics())
     serviceMetrics.generalMetrics.activeRequests.increment()
 
-    val result = Try(thunk)
+    continuation(MetricsContinuation(request, response, start, serviceMetrics))
+  }
+}
 
-    onFinish(request, response)(now, serviceMetrics, result).get
+/**
+  * continuation-passing style (CPS) to keep explicitly the order of metrics and tracing managing avoiding spaghetti code
+  * @param request
+  * @param response
+  * @param start
+  * @param serviceMetrics
+  */
+case class MetricsContinuation(request: HttpServletRequest, response: HttpServletResponse,
+                               start: Instant, serviceMetrics: ServiceMetrics) {
+
+  def apply(result: Try[Unit])(end: Instant): Try[Unit] = {
+    onFinish(request, response)(start, serviceMetrics, result)
   }
 
   private def onFinish(request: HttpServletRequest, response: HttpServletResponse): (Instant, ServiceMetrics, Try[Unit]) => Try[Unit] = {
@@ -66,7 +78,7 @@ object ServletMetrics {
   }
 }
 
-final case class MetricsResponseHandler(timeStart: Instant, serviceMetrics: ServiceMetrics, request: HttpServletRequest, response: HttpServletResponse)
+case class MetricsResponseHandler(timeStart: Instant, serviceMetrics: ServiceMetrics, request: HttpServletRequest, response: HttpServletResponse)
   extends KamonResponseHandler with OnlyOnce {
 
   override def onError(): Unit = onlyOnce {

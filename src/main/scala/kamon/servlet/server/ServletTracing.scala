@@ -29,7 +29,8 @@ import scala.util.Try
 
 object ServletTracing {
 
-  def withTracing(request: HttpServletRequest, response: HttpServletResponse)(thunk: => Unit): Unit = {
+  def withTracing(request: HttpServletRequest, response: HttpServletResponse, continuation: MetricsContinuation)
+                 (thunk: => Unit): Try[Unit] = {
 
     val serverSpan = createSpan(request)
     val scope = Kamon.storeContext(Context.create(Span.ContextKey, serverSpan))
@@ -38,24 +39,24 @@ object ServletTracing {
 
     scope.close()
 
-    onFinish(request, response)(serverSpan, result).get
+    onFinish(request, response)(serverSpan, result, continuation)
   }
 
-  private def onFinish(request: HttpServletRequest, response: HttpServletResponse): (Span, Try[Unit]) => Try[Unit] = {
+  private def onFinish(request: HttpServletRequest, response: HttpServletResponse): (Span, Try[Unit], MetricsContinuation) => Try[Unit] = {
     if (request.isAsyncStarted) handleAsync(request, response)
     else                        handleSync(request, response)
   }
 
   private def handleAsync(request: HttpServletRequest, response: HttpServletResponse)
-                         (serverSpan: Span, result: Try[Unit]): Try[Unit] = {
-    val handler = TracingResponseHandler(serverSpan, request, response)
+                         (serverSpan: Span, result: Try[Unit], continuation: MetricsContinuation): Try[Unit] = {
+    val handler = TracingResponseHandler(serverSpan, request, response, continuation(result))
     request.getAsyncContext.addListener(KamonAsyncListener(handler))
     result
   }
 
   private def handleSync(request: HttpServletRequest, response: HttpServletResponse)
-                         (serverSpan: Span, result: Try[Unit]): Try[Unit] = {
-    val handler = TracingResponseHandler(serverSpan, request, response)
+                         (serverSpan: Span, result: Try[Unit], continuation: MetricsContinuation): Try[Unit] = {
+    val handler = TracingResponseHandler(serverSpan, request, response, continuation(result))
     result
       .map { x => handler.onComplete(); x }
       .recover {
@@ -101,27 +102,30 @@ object ServletTracing {
   }
 }
 
-final case class TracingResponseHandler(serverSpan: Span, request: HttpServletRequest, response: HttpServletResponse)
-  extends KamonResponseHandler with OnlyOnce {
+final case class TracingResponseHandler(serverSpan: Span, request: HttpServletRequest,
+                                        response: HttpServletResponse,
+                                        callback: Instant => Try[Unit]) extends KamonResponseHandler with OnlyOnce {
 
   override def onError(): Unit = onlyOnce {
-    always()
+    val end = Kamon.clock().instant()
+    always(end)
     finishSpanWithError(serverSpan, Kamon.clock().instant())
   }
 
   override def onComplete(): Unit = onlyOnce {
-    always()
+    val end = Kamon.clock().instant()
+    always(end)
     serverSpan.finish(Kamon.clock().instant())
   }
 
   override def onStartAsync(): Unit = ()
 
   override def onTimeout(): Unit = onlyOnce {
-    always()
-    finishSpanWithError(serverSpan, Kamon.clock().instant())
+    onError()
   }
 
-  private def always(): Unit = {
+  private def always(end: Instant): Unit = {
+    callback(end)
     handleStatusCode(serverSpan, response.getStatus)
     serverSpan.tag("http.status_code", response.getStatus)
   }
