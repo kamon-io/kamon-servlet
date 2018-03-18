@@ -20,41 +20,42 @@ import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 
 object Servlets {
 
-  val defaultDelay = 1000 // millis
+  val defaultDuration: Long = 1000 // millis
 
   def withDelay[A](timeInMillis: Long)(thunk: => A): A = {
-    Thread.sleep(timeInMillis)
+    if (timeInMillis > 0) Thread.sleep(timeInMillis)
     thunk
   }
 }
 
-class AsyncTestServlet extends HttpServlet {
+case class AsyncTestServlet(defaultDuration: Long = Servlets.defaultDuration)
+                           (val durationOk: Long = defaultDuration,
+                            val durationNotFound: Long = defaultDuration,
+                            val durationError: Long = defaultDuration,
+                            val durationSlowly: Long = defaultDuration) extends HttpServlet {
   import Servlets._
 
 
   override def doGet(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
     val asyncContext = req.startAsync(req, resp)
 
-    asyncContext.start(new Runnable {
-      override def run(): Unit = {
-        asyncContext.getRequest.asInstanceOf[HttpServletRequest].getRequestURI match {
-          case "/async/tracing/not-found" ⇒ withDelay(defaultDelay) { resp.setStatus(404) }
-          case "/async/tracing/error"     ⇒ withDelay(defaultDelay) { resp.setStatus(500) }
-          case "/async/tracing/ok"        ⇒ withDelay(defaultDelay) { resp.setStatus(200) }
-          case other                      ⇒
-            resp.getOutputStream.println(s"Something wrong on the test. Endpoint unmapped: $other")
-            resp.setStatus(404)
-        }
-        asyncContext.complete()
+    asyncContext.start(() => {
+      asyncContext.getRequest.asInstanceOf[HttpServletRequest].getRequestURI match {
+        case "/async/tracing/not-found" ⇒ withDelay(durationNotFound) { resp.setStatus(404) }
+        case "/async/tracing/error"     ⇒ withDelay(durationError) { resp.setStatus(500) }
+        case "/async/tracing/ok"        ⇒ withDelay(durationOk) { resp.setStatus(200) }
+        case "/async/tracing/slowly"    ⇒ withDelay(durationSlowly) { resp.setStatus(200) }
+        case other                      ⇒
+          resp.getOutputStream.println(s"Something wrong on the test. Endpoint unmapped: $other")
+          resp.setStatus(404)
       }
+      asyncContext.complete()
     })
   }
 }
 
-class SyncTestServlet extends HttpServlet {
+case class SyncTestServlet(defaultDelay: Long = 1000) extends HttpServlet {
   import Servlets._
-
-  val defaultDelay = 1000 // millis
 
   override def doGet(req: HttpServletRequest, resp: HttpServletResponse): Unit = req.getRequestURI match {
     case "/sync/tracing/not-found" ⇒ resp.setStatus(404)

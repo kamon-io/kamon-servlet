@@ -29,6 +29,16 @@ import scala.util.Try
 
 object ServletMetrics {
 
+  /**
+    * Processing metrics around the request.
+    * It's written with continuation-passing style (CPS) to keep explicitly the order of metrics and tracing managing.
+    *
+    * @param start: instant since request start to process
+    * @param request; request in process
+    * @param response: response in process
+    * @param continuation: continuation function where it will be passed the callback for metrics processing
+    * @return unit with possible exception caught
+    */
   def withMetrics(start: Instant, request: HttpServletRequest, response: HttpServletResponse)
                  (continuation: MetricsContinuation => Try[Unit]): Try[Unit] = {
 
@@ -40,69 +50,45 @@ object ServletMetrics {
 }
 
 /**
-  * continuation-passing style (CPS) to keep explicitly the order of metrics and tracing managing avoiding spaghetti code
-  * @param request
-  * @param response
-  * @param start
-  * @param serviceMetrics
+  * It's passed to the continuation function to generate metrics after request processing
+  * @param request: request in process
+  * @param response: response in process
+  * @param start: instant since request start to process
+  * @param serviceMetrics: metrics generator
   */
 case class MetricsContinuation(request: HttpServletRequest, response: HttpServletResponse,
                                start: Instant, serviceMetrics: ServiceMetrics) {
 
-  def apply(result: Try[Unit])(end: Instant): Try[Unit] = {
-    onFinish(request, response)(start, serviceMetrics, result)
+
+  def onSuccess(end: Instant): Unit = {
+    val handler = MetricsResponseHandler(request, response, start, end, serviceMetrics)
+    handler.onComplete()
   }
 
-  private def onFinish(request: HttpServletRequest, response: HttpServletResponse): (Instant, ServiceMetrics, Try[Unit]) => Try[Unit] = {
-    if (request.isAsyncStarted) handleAsync(request, response)
-    else                        handleSync(request, response)
-  }
-
-  private def handleAsync(request: HttpServletRequest, response: HttpServletResponse)
-                         (timeStart: Instant, serviceMetrics: ServiceMetrics, result: Try[Unit]): Try[Unit] = {
-    val handler = MetricsResponseHandler(timeStart, serviceMetrics, request, response)
-    request.getAsyncContext.addListener(KamonAsyncListener(handler))
-    result
-  }
-
-  private def handleSync(request: HttpServletRequest, response: HttpServletResponse)
-                        (timeStart: Instant, serviceMetrics: ServiceMetrics, result: Try[Unit]): Try[Unit] = {
-    val handler = MetricsResponseHandler(timeStart, serviceMetrics, request, response)
-    result
-      .map { x => handler.onComplete(); x }
-      .recover {
-        case exc: Throwable =>
-          handler.onError()
-          exc
-      }
+  def onError(end: Instant): Unit = {
+    val handler = MetricsResponseHandler(request, response, start, end, serviceMetrics)
+    handler.onComplete()
   }
 }
 
-case class MetricsResponseHandler(timeStart: Instant, serviceMetrics: ServiceMetrics, request: HttpServletRequest, response: HttpServletResponse)
-  extends KamonResponseHandler with OnlyOnce {
+case class MetricsResponseHandler(request: HttpServletRequest, response: HttpServletResponse,
+                                  start: Instant, end: Instant, serviceMetrics: ServiceMetrics)
+  extends OnlyOnce {
 
-  override def onError(): Unit = onlyOnce {
-    val elapsed = calculateElapsed
-    always(elapsed)
+  private val elapsed = start.until(Kamon.clock().instant(), ChronoUnit.NANOS)
+
+  def onError(): Unit = onlyOnce {
+    always()
     incrementCounts(serviceMetrics.generalMetrics.serviceErrors, elapsed)
   }
 
-  override def onComplete(): Unit = onlyOnce {
-    val elapsed = calculateElapsed
-    always(elapsed)
+  def onComplete(): Unit = onlyOnce {
+    always()
     incrementCounts(serviceMetrics.generalMetrics.headersTimes, elapsed)
     responseMetrics(serviceMetrics.responseTimeMetrics, response.getStatus, elapsed)
   }
 
-  override def onStartAsync(): Unit = ()
-
-  override def onTimeout(): Unit = onlyOnce {
-    onError()
-  }
-
-  private def calculateElapsed: Long = timeStart.until(Kamon.clock().instant(), ChronoUnit.NANOS)
-
-  private def always(elapsed: Long): Unit = {
+  private def always(): Unit = {
     requestMetrics(serviceMetrics.requestTimeMetrics, serviceMetrics.generalMetrics.activeRequests)(request.getMethod, elapsed)
   }
 

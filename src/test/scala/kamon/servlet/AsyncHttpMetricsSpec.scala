@@ -17,11 +17,10 @@
 package kamon.servlet
 
 import java.util.concurrent.Executors
-import javax.servlet.Servlet
 
 import kamon.Kamon
 import kamon.servlet.Metrics.{GeneralMetrics, ResponseTimeMetrics}
-import kamon.servlet.server.{JettySupport, SyncTestServlet}
+import kamon.servlet.server.{AsyncTestServlet, JettySupport}
 import kamon.testkit.MetricInspection
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.SpanSugar
@@ -31,7 +30,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
 
-class HttpMetricsSpec extends WordSpec
+class AsyncHttpMetricsSpec extends WordSpec
   with Matchers
   with Eventually
   with SpanSugar
@@ -44,7 +43,7 @@ class HttpMetricsSpec extends WordSpec
   import com.softwaremill.sttp._
   implicit val backend: SttpBackend[Id, Nothing] = HttpURLConnectionBackend()
 
-  override val servlet = SyncTestServlet()
+  override val servlet = AsyncTestServlet(defaultDuration = 10)(durationSlowly = 1000)
 
   override protected def beforeAll(): Unit = {
     startServer()
@@ -66,7 +65,7 @@ class HttpMetricsSpec extends WordSpec
   "The HttpMetrics" should {
     "track the total of active requests" in {
       for(_ <- 1 to 10) yield  {
-        Future { get("/sync/tracing/slowly") }(parallelRequestExecutor)
+        Future { get("/async/tracing/slowly") }(parallelRequestExecutor)
       }
 
       eventually(timeout(3 seconds)) {
@@ -80,18 +79,18 @@ class HttpMetricsSpec extends WordSpec
     }
 
     "track the response time with status code 2xx" in {
-      for(_ <- 1 to 100) yield get("/sync/tracing/ok")
-      ResponseTimeMetrics().forStatusCode("2xx").distribution().max should be > 0L
+      for(_ <- 1 to 100) yield get("/async/tracing/ok")
+      ResponseTimeMetrics().forStatusCode("2xx").distribution().max should be >= 10000000L // 10 ms expressed in nanos
     }
 
     "track the response time with status code 4xx" in {
-      for(_ <- 1 to 100) yield get("/sync/tracing/not-found")
-      ResponseTimeMetrics().forStatusCode("4xx").distribution().max should be > 0L
+      for(_ <- 1 to 100) yield get("/async/tracing/not-found")
+      ResponseTimeMetrics().forStatusCode("4xx").distribution().max should be >= 10000000L
     }
 
     "track the response time with status code 5xx" in {
-      for(_ <- 1 to 100) yield get("/sync/tracing/error")
-      ResponseTimeMetrics().forStatusCode("5xx").distribution().max should be > 0L
+      for(_ <- 1 to 100) yield get("/async/tracing/error")
+      ResponseTimeMetrics().forStatusCode("5xx").distribution().max should be >= 10000000L
     }
   }
 }

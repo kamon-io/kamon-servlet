@@ -49,14 +49,14 @@ object ServletTracing {
 
   private def handleAsync(request: HttpServletRequest, response: HttpServletResponse)
                          (serverSpan: Span, result: Try[Unit], continuation: MetricsContinuation): Try[Unit] = {
-    val handler = TracingResponseHandler(serverSpan, request, response, continuation(result))
+    val handler = TracingResponseHandler(serverSpan, request, response, continuation)
     request.getAsyncContext.addListener(KamonAsyncListener(handler))
     result
   }
 
   private def handleSync(request: HttpServletRequest, response: HttpServletResponse)
                          (serverSpan: Span, result: Try[Unit], continuation: MetricsContinuation): Try[Unit] = {
-    val handler = TracingResponseHandler(serverSpan, request, response, continuation(result))
+    val handler = TracingResponseHandler(serverSpan, request, response, continuation)
     result
       .map { x => handler.onComplete(); x }
       .recover {
@@ -104,16 +104,18 @@ object ServletTracing {
 
 final case class TracingResponseHandler(serverSpan: Span, request: HttpServletRequest,
                                         response: HttpServletResponse,
-                                        callback: Instant => Try[Unit]) extends KamonResponseHandler with OnlyOnce {
+                                        continuation: MetricsContinuation) extends KamonResponseHandler with OnlyOnce {
 
   override def onError(): Unit = onlyOnce {
     val end = Kamon.clock().instant()
     always(end)
+    continuation.onError(end)
     finishSpanWithError(serverSpan, Kamon.clock().instant())
   }
 
   override def onComplete(): Unit = onlyOnce {
     val end = Kamon.clock().instant()
+    continuation.onSuccess(end)
     always(end)
     serverSpan.finish(Kamon.clock().instant())
   }
@@ -125,7 +127,6 @@ final case class TracingResponseHandler(serverSpan: Span, request: HttpServletRe
   }
 
   private def always(end: Instant): Unit = {
-    callback(end)
     handleStatusCode(serverSpan, response.getStatus)
     serverSpan.tag("http.status_code", response.getStatus)
   }

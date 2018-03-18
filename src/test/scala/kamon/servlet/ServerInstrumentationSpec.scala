@@ -39,7 +39,7 @@ class ServerInstrumentationSpec extends WordSpec
   import com.softwaremill.sttp._
   implicit val backend: SttpBackend[Id, Nothing] = HttpURLConnectionBackend()
 
-  override def servletClass: Class[_ <: Servlet] = classOf[SyncTestServlet]
+  override val servlet = SyncTestServlet()
 
   override protected def beforeAll(): Unit = {
     startServer()

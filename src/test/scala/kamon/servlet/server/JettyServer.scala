@@ -31,7 +31,7 @@ class JettyServer(socketAddress: InetSocketAddress = new InetSocketAddress(0)) {
   val server = new Server(socketAddress)
   val context = new ServletContextHandler(server, "/")
 
-  def start(clazz: Class[_ <: Servlet], path: String = "/*"): this.type = {
+  def start(clazz: Servlet, path: String = "/*"): this.type = {
     val servlet = new ServletHolder(clazz)
 
     servlet.setAsyncSupported(true)
@@ -58,12 +58,12 @@ class JettyServer(socketAddress: InetSocketAddress = new InetSocketAddress(0)) {
 
 trait JettySupport {
 
-  def servletClass: Class[_ <: Servlet]
+  val servlet: Servlet
 
   private var jetty = Option.empty[JettyServer]
 
   def startServer(): Unit = {
-    jetty = Some(new JettyServer().start(servletClass))
+    jetty = Some(new JettyServer().start(servlet))
   }
 
   def stopServer(): Unit = {

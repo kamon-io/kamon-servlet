@@ -40,7 +40,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
   import com.softwaremill.sttp._
   implicit val backend: SttpBackend[Id, Nothing] = HttpURLConnectionBackend()
 
-  override def servletClass: Class[_ <: Servlet] = classOf[AsyncTestServlet]
+  override val servlet = AsyncTestServlet()()
 
   override protected def beforeAll(): Unit = {
     startServer()
@@ -74,7 +74,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
         spanTags("http.url") shouldBe "/async/tracing/ok"
         span.tags("http.status_code") shouldBe TagValue.Number(200)
 
-        span.from.until(span.to, ChronoUnit.MILLIS) shouldBe >= (Servlets.defaultDelay.toLong)
+        span.from.until(span.to, ChronoUnit.MILLIS) shouldBe >= (servlet.durationOk.toLong)
 
       }
     }
@@ -94,7 +94,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
         spanTags("http.url") shouldBe "/async/tracing/not-found"
         span.tags("http.status_code") shouldBe TagValue.Number(404)
 
-        span.from.until(span.to, ChronoUnit.MILLIS) shouldBe >= (Servlets.defaultDelay.toLong)
+        span.from.until(span.to, ChronoUnit.MILLIS) shouldBe >= (servlet.durationNotFound.toLong)
       }
     }
 
@@ -113,7 +113,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
         span.tags("error") shouldBe TagValue.True
         span.tags("http.status_code") shouldBe TagValue.Number(500)
 
-        span.from.until(span.to, ChronoUnit.MILLIS) shouldBe >= (Servlets.defaultDelay.toLong)
+        span.from.until(span.to, ChronoUnit.MILLIS) shouldBe >= (servlet.durationError.toLong)
       }
     }
   }
