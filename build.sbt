@@ -29,19 +29,38 @@ val scalatest         = "org.scalatest"         %% "scalatest"              % "3
 
 
 lazy val root = (project in file("."))
-  .settings(Seq(
-      name := "kamon-servlet",
-      scalaVersion := "2.12.4",
-      crossScalaVersions := Seq("2.11.12", "2.12.4")))
+    .aggregate(kamonServlet, kamonServletBench)
+
+val commonSettings = Seq(
+  scalaVersion := "2.12.4",
+  resolvers += Resolver.mavenLocal,
+  resolvers += Resolver.bintrayRepo("kamon-io", "snapshots"),
+  crossScalaVersions := Seq("2.12.4", "2.11.12", "2.10.6")
+//  scalacOptions ++= Seq("l:method", "l:classpath", "l:project")
+)
+
+lazy val kamonServlet = (project in file("kamon-servlet"))
+  .settings(name := "kamon-servlet")
   .settings(parallelExecution in Test := false)
-  .settings(resolvers += Resolver.bintrayRepo("kamon-io", "snapshots"))
-  .settings(resolvers += Resolver.mavenLocal)
+  .settings(commonSettings: _*)
   .settings(scalacOptions ++= Seq("-Ypartial-unification", "-language:higherKinds"))
   .settings(
     libraryDependencies ++=
       compileScope(kamonCore) ++
       providedScope(servletApi) ++
       testScope(scalatest, kamonTestkit, logbackClassic, jetty, jettyServer, jettyServlet, sttp))
+
+lazy val kamonServletBench = (project in file("kamon-servlet-bench"))
+  .enablePlugins(JmhPlugin)
+  .settings(commonSettings: _*)
+  .settings(
+    moduleName := "kamon-servlet-bench",
+    fork in Test := true)
+  .settings(
+    libraryDependencies ++=
+      compileScope(jetty, jettyServer, jettyServlet, sttp) ++
+        providedScope(servletApi))
+  .dependsOn(kamonServlet)
 
 def compileScope(deps: ModuleID*): Seq[ModuleID]  = deps map (_ % "compile")
 def testScope(deps: ModuleID*): Seq[ModuleID]     = deps map (_ % "test")

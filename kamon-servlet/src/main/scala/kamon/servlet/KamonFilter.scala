@@ -18,14 +18,17 @@ package kamon.servlet
 
 import javax.servlet._
 import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
-
 import kamon.Kamon
+import kamon.servlet.Metrics.{GeneralMetrics, RequestTimeMetrics, ResponseTimeMetrics, ServiceMetrics}
 import kamon.servlet.server._
 
 import scala.language.postfixOps
 import scala.util.Try
 
 class KamonFilter extends Filter {
+
+  val servletMetrics = ServletMetrics(ServiceMetrics(GeneralMetrics(), RequestTimeMetrics(), ResponseTimeMetrics()))
+
   override def init(filterConfig: FilterConfig): Unit = ()
 
   override def destroy(): Unit = ()
@@ -36,7 +39,7 @@ class KamonFilter extends Filter {
 
     val start = Kamon.clock().instant()
 
-    ServletMetrics.withMetrics(start, req, res) { metricsContinuation =>
+    servletMetrics.withMetrics(start, req, res) { metricsContinuation =>
       ServletTracing.withTracing(req, res, metricsContinuation) { tracingContinuation =>
         process(req, res, tracingContinuation) {
           chain.doFilter(request, response)

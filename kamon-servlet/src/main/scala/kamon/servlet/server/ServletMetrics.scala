@@ -27,7 +27,7 @@ import kamon.servlet.utils.OnlyOnce
 
 import scala.util.Try
 
-object ServletMetrics {
+case class ServletMetrics(serviceMetrics: ServiceMetrics) {
 
   /**
     * Processing metrics around the request.

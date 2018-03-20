@@ -16,8 +16,6 @@
 
 package kamon.servlet
 
-import javax.servlet.Servlet
-
 import kamon.Kamon
 import kamon.servlet.server.{JettySupport, SyncTestServlet}
 import kamon.trace.Span
@@ -42,9 +40,9 @@ class ServerInstrumentationSpec extends WordSpec
   override val servlet = SyncTestServlet()
 
   override protected def beforeAll(): Unit = {
+    Kamon.config()
     startServer()
     startRegistration()
-    Kamon.config()
   }
 
   override protected def afterAll(): Unit = {
@@ -52,8 +50,8 @@ class ServerInstrumentationSpec extends WordSpec
     stopServer()
   }
 
-  private def get(path: String): Id[Response[String]] = {
-    sttp.get(Uri("localhost", port).path(path)).send()
+  private def get(path: String, headers: Seq[(String, String)] = Seq()): Id[Response[String]] = {
+    sttp.get(Uri("localhost", port).path(path)).headers(headers: _*).send()
   }
 
   "The Server  instrumentation" should {
@@ -72,6 +70,8 @@ class ServerInstrumentationSpec extends WordSpec
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/ok"
         span.tags("http.status_code") shouldBe TagValue.Number(200)
+
+        span.context.parentID.string shouldBe ""
       }
     }
 
@@ -89,6 +89,8 @@ class ServerInstrumentationSpec extends WordSpec
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/not-found"
         span.tags("http.status_code") shouldBe TagValue.Number(404)
+
+        span.context.parentID.string shouldBe ""
       }
     }
 
@@ -106,12 +108,49 @@ class ServerInstrumentationSpec extends WordSpec
         spanTags("http.url") shouldBe "/sync/tracing/error"
         span.tags("error") shouldBe TagValue.True
         span.tags("http.status_code") shouldBe TagValue.Number(500)
+
+        span.context.parentID.string shouldBe ""
+      }
+    }
+
+    "resume the incoming context and respond to the ok action" in {
+      get("/sync/tracing/ok", IncomingContext.headersB3).code shouldBe 200
+
+      eventually(timeout(3 seconds)) {
+
+        val span = reporter.nextSpan().value
+        val spanTags = stringTag(span) _
+
+        span.operationName shouldBe "sync.tracing.ok.get"
+        spanTags("span.kind") shouldBe "server"
+        spanTags("component") shouldBe "servlet.server"
+        spanTags("http.method") shouldBe "GET"
+        spanTags("http.url") shouldBe "/sync/tracing/ok"
+        span.tags("http.status_code") shouldBe TagValue.Number(200)
+
+        span.context.parentID.string shouldBe IncomingContext.SpanId
+        span.context.traceID.string shouldBe IncomingContext.TraceId
       }
     }
   }
 
   def stringTag(span: Span.FinishedSpan)(tag: String): String = {
     span.tags(tag).asInstanceOf[TagValue.String].string
+  }
+
+  object IncomingContext {
+    val TraceId = "1234"
+    val ParentSpanId = "2222"
+    val SpanId = "4321"
+    val Sampled = "1"
+    val ExtraBaggage = "some=baggage;more=baggage"
+
+    val headersB3 = Seq(
+      ("X-B3-TraceId", TraceId),
+      ("X-B3-ParentSpanId", ParentSpanId),
+      ("X-B3-SpanId", SpanId),
+      ("X-B3-Sampled", Sampled),
+      ("X-B3-Extra-Baggage", ExtraBaggage))
   }
 
 }
