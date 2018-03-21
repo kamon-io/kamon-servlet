@@ -16,19 +16,9 @@
 
 package kamon.servlet.server
 
-import javax.servlet.{AsyncEvent, AsyncListener}
-
 trait KamonResponseHandler {
 
-  def onError(): Unit
+  def onError(error: Option[Throwable]): Unit
   def onComplete(): Unit
-  def onTimeout(): Unit
   def onStartAsync(): Unit
-}
-
-final case class KamonAsyncListener(handler: KamonResponseHandler) extends AsyncListener {
-  override def onError(event: AsyncEvent): Unit = handler.onError()
-  override def onComplete(event: AsyncEvent): Unit = handler.onComplete()
-  override def onStartAsync(event: AsyncEvent): Unit = handler.onStartAsync()
-  override def onTimeout(event: AsyncEvent): Unit = handler.onTimeout()
 }

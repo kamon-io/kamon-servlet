@@ -18,7 +18,6 @@ package kamon.servlet.server
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
 
 import kamon.Kamon
 import kamon.metric.{Histogram, RangeSampler}
@@ -27,7 +26,18 @@ import kamon.servlet.utils.OnlyOnce
 
 import scala.util.Try
 
-case class ServletMetrics(serviceMetrics: ServiceMetrics) {
+
+object ServletMetrics {
+
+  def apply(): ServletMetrics = {
+    if (isEnabled) DefaultServletMetrics(ServiceMetrics(GeneralMetrics(), RequestTimeMetrics(), ResponseTimeMetrics()))
+    else NoOpServletMetrics
+  }
+
+  private def isEnabled = Kamon.config.getBoolean("kamon.servlet.metrics.enabled")
+}
+
+trait ServletMetrics {
 
   /**
     * Processing metrics around the request.
@@ -39,25 +49,47 @@ case class ServletMetrics(serviceMetrics: ServiceMetrics) {
     * @param continuation: continuation function where it will be passed the callback for metrics processing
     * @return unit with possible exception caught
     */
-  def withMetrics(start: Instant, request: HttpServletRequest, response: HttpServletResponse)
-                 (continuation: MetricsContinuation => Try[Unit]): Try[Unit] = {
+  def withMetrics(start: Instant, request: RequestServlet, response: ResponseServlet)
+                 (continuation: MetricsContinuation => Try[Unit]): Try[Unit]
+}
+
+case class DefaultServletMetrics(serviceMetrics: ServiceMetrics) extends ServletMetrics {
+
+  override def withMetrics(start: Instant, request: RequestServlet, response: ResponseServlet)
+                          (continuation: MetricsContinuation => Try[Unit]): Try[Unit] = {
 
     val serviceMetrics = ServiceMetrics(GeneralMetrics(), RequestTimeMetrics(), ResponseTimeMetrics())
     serviceMetrics.generalMetrics.activeRequests.increment()
 
-    continuation(MetricsContinuation(request, response, start, serviceMetrics))
+    continuation(DefaultMetricsContinuation(request, response, start, serviceMetrics))
+  }
+}
+
+case object NoOpServletMetrics extends ServletMetrics {
+
+  override def withMetrics(start: Instant, request: RequestServlet, response: ResponseServlet)
+                          (continuation: MetricsContinuation => Try[Unit]): Try[Unit] = {
+    continuation(NoOpMetricsContinuation)
   }
 }
 
 /**
   * It's passed to the continuation function to generate metrics after request processing
+  */
+trait MetricsContinuation {
+  def onSuccess(end: Instant): Unit
+  def onError(end: Instant): Unit
+}
+
+/**
+  * Default implementation of MetricsContinuation
   * @param request: request in process
   * @param response: response in process
   * @param start: instant since request start to process
   * @param serviceMetrics: metrics generator
   */
-case class MetricsContinuation(request: HttpServletRequest, response: HttpServletResponse,
-                               start: Instant, serviceMetrics: ServiceMetrics) {
+case class DefaultMetricsContinuation(request: RequestServlet, response: ResponseServlet,
+                                      start: Instant, serviceMetrics: ServiceMetrics) extends MetricsContinuation {
 
 
   def onSuccess(end: Instant): Unit = {
@@ -71,7 +103,12 @@ case class MetricsContinuation(request: HttpServletRequest, response: HttpServle
   }
 }
 
-case class MetricsResponseHandler(request: HttpServletRequest, response: HttpServletResponse,
+case object NoOpMetricsContinuation extends MetricsContinuation {
+  override def onSuccess(end: Instant): Unit = ()
+  override def onError(end: Instant): Unit = ()
+}
+
+case class MetricsResponseHandler(request: RequestServlet, response: ResponseServlet,
                                   start: Instant, end: Instant, serviceMetrics: ServiceMetrics)
   extends OnlyOnce {
 
@@ -85,7 +122,7 @@ case class MetricsResponseHandler(request: HttpServletRequest, response: HttpSer
   def onComplete(): Unit = onlyOnce {
     always()
     incrementCounts(serviceMetrics.generalMetrics.headersTimes, elapsed)
-    responseMetrics(serviceMetrics.responseTimeMetrics, response.getStatus, elapsed)
+    responseMetrics(serviceMetrics.responseTimeMetrics, response.status, elapsed)
   }
 
   private def always(): Unit = {

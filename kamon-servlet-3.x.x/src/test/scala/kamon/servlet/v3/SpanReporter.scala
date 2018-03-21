@@ -14,30 +14,24 @@
  * =========================================================================================
  */
 
-package kamon.servlet
+package kamon.servlet.v3
 
 import kamon.Kamon
-import kamon.servlet.server._
+import kamon.testkit.{Reconfigure, TestSpanReporter}
+import kamon.util.Registration
 
-import scala.language.postfixOps
+trait SpanReporter extends Reconfigure {
 
-trait KamonFilter {
+  @volatile var registration: Registration = _
+  val reporter = new TestSpanReporter()
 
-  type Request  <: RequestServlet
-  type Response <: ResponseServlet
-  type Chain    <: FilterDelegation[Request, Response]
-
-  val servletMetrics = ServletMetrics()
-
-  def executeAround(request: Request, response: Response, next: Chain): Unit = {
-    val start = Kamon.clock().instant()
-
-    servletMetrics.withMetrics(start, request, response) { metricsContinuation =>
-      ServletTracing.withTracing(request, response, metricsContinuation) { tracingContinuation =>
-        next.chain(request, response)(tracingContinuation)
-      }
-    } get
-
+  def startRegistration(): Unit = {
+    enableFastSpanFlushing()
+    sampleAlways()
+    registration = Kamon.addReporter(reporter)
   }
 
+   def stopRegistration(): Unit = {
+    registration.cancel()
+  }
 }

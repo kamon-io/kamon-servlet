@@ -8,6 +8,6 @@ Execute from your terminal:
 
 ```bash
 sbt
-project kamonServletBench
+project benchmarks-3
 jmh:run -i 50 -wi 20 -f1 -t1 .*Benchmark.*
 ```

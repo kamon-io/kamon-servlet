@@ -14,30 +14,24 @@
  * =========================================================================================
  */
 
-package kamon.servlet
+package kamon.servlet.v3
 
-import kamon.Kamon
-import kamon.servlet.server._
+import javax.servlet._
+import kamon.servlet.KamonFilter
+import kamon.servlet.v3.server.{FilterDelegationV3, RequestServletV3, ResponseServletV3}
 
-import scala.language.postfixOps
 
-trait KamonFilter {
+class KamonFilterV3 extends Filter with KamonFilter {
 
-  type Request  <: RequestServlet
-  type Response <: ResponseServlet
-  type Chain    <: FilterDelegation[Request, Response]
+  override type Request  = RequestServletV3
+  override type Response = ResponseServletV3
+  override type Chain    = FilterDelegationV3
 
-  val servletMetrics = ServletMetrics()
+  override def init(filterConfig: FilterConfig): Unit = ()
 
-  def executeAround(request: Request, response: Response, next: Chain): Unit = {
-    val start = Kamon.clock().instant()
+  override def destroy(): Unit = ()
 
-    servletMetrics.withMetrics(start, request, response) { metricsContinuation =>
-      ServletTracing.withTracing(request, response, metricsContinuation) { tracingContinuation =>
-        next.chain(request, response)(tracingContinuation)
-      }
-    } get
-
+  override def doFilter(request: ServletRequest, response: ServletResponse, chain: FilterChain): Unit = {
+    executeAround(RequestServletV3(request), ResponseServletV3(response), FilterDelegationV3(chain))
   }
-
 }

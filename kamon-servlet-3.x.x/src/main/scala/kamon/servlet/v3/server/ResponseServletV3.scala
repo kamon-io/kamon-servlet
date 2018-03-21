@@ -14,30 +14,19 @@
  * =========================================================================================
  */
 
-package kamon.servlet
+package kamon.servlet.v3.server
 
-import kamon.Kamon
-import kamon.servlet.server._
+import javax.servlet.ServletResponse
+import javax.servlet.http.HttpServletResponse
+import kamon.servlet.server.ResponseServlet
 
-import scala.language.postfixOps
+case class ResponseServletV3(underlineResponse: HttpServletResponse) extends ResponseServlet {
+  override def status: Int = underlineResponse.getStatus
+}
 
-trait KamonFilter {
+object ResponseServletV3 {
 
-  type Request  <: RequestServlet
-  type Response <: ResponseServlet
-  type Chain    <: FilterDelegation[Request, Response]
-
-  val servletMetrics = ServletMetrics()
-
-  def executeAround(request: Request, response: Response, next: Chain): Unit = {
-    val start = Kamon.clock().instant()
-
-    servletMetrics.withMetrics(start, request, response) { metricsContinuation =>
-      ServletTracing.withTracing(request, response, metricsContinuation) { tracingContinuation =>
-        next.chain(request, response)(tracingContinuation)
-      }
-    } get
-
+  def apply(request: ServletResponse): ResponseServletV3 = {
+    new ResponseServletV3(request.asInstanceOf[HttpServletResponse])
   }
-
 }

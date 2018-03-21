@@ -14,30 +14,25 @@
  * =========================================================================================
  */
 
-package kamon.servlet
+package kamon.servlet.server
 
-import kamon.Kamon
-import kamon.servlet.server._
+import scala.util.Try
 
-import scala.language.postfixOps
 
-trait KamonFilter {
+trait RequestServlet {
 
-  type Request  <: RequestServlet
-  type Response <: ResponseServlet
-  type Chain    <: FilterDelegation[Request, Response]
+  def getMethod: String
+  def uri: String
+  def url: String
+  def headers: Map[String, String]
+}
 
-  val servletMetrics = ServletMetrics()
+trait ResponseServlet {
 
-  def executeAround(request: Request, response: Response, next: Chain): Unit = {
-    val start = Kamon.clock().instant()
+  def status: Int
+}
 
-    servletMetrics.withMetrics(start, request, response) { metricsContinuation =>
-      ServletTracing.withTracing(request, response, metricsContinuation) { tracingContinuation =>
-        next.chain(request, response)(tracingContinuation)
-      }
-    } get
+trait FilterDelegation[Request  <: RequestServlet, Response <: ResponseServlet] {
 
-  }
-
+  def chain(request: Request, response: Response)(tracingContinuation: TracingContinuation): Try[Unit]
 }
