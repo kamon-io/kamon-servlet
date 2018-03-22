@@ -21,6 +21,9 @@ import kamon.servlet.server._
 
 import scala.language.postfixOps
 
+/**
+  * Kamon Filter to tracing propagation and metrics gathering on a Servlet-Based Web App
+  */
 trait KamonFilter {
 
   type Request  <: RequestServlet

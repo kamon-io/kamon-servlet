@@ -20,7 +20,11 @@ import javax.servlet._
 import kamon.servlet.KamonFilter
 import kamon.servlet.v3.server.{FilterDelegationV3, RequestServletV3, ResponseServletV3}
 
-
+/**
+  * Kamon Filter to tracing propagation and metrics gathering on a Servlet-Based Web App
+  *
+  * Concrete filter implementation for Servlet v3.x.x
+  */
 class KamonFilterV3 extends Filter with KamonFilter {
 
   override type Request  = RequestServletV3
