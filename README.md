@@ -14,11 +14,11 @@ Supported releases and dependencies are shown below.
 
 | kamon-servlet-2.5  | status | jdk        | scala            
 |:---------------:|:------:|:----------:|------------------
-|  -          | WIP | 1.8+ | 2.10, 2.11, 2.12
+|  1.0.0          | stable | 1.8+ | 2.10, 2.11, 2.12
 
 | kamon-servlet-3.x.x  | status | jdk        | scala   
 |:---------------:|:------:|:----------:|------------------
-|  -          | WIP | 1.8+       | 2.10, 2.11, 2.12  
+|  1.0.0          | stable | 1.8+       | 2.10, 2.11, 2.12  
 
 To get `kamon-servlet` in your project:
 
