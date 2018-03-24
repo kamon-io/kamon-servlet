@@ -14,14 +14,14 @@
 // * =========================================================================================
 // */
 
-package kamon.servlet.v3
+package kamon.servlet.v25
 
 import java.util.concurrent.Executors
 
 import com.typesafe.config.ConfigFactory
 import kamon.Kamon
 import kamon.servlet.Metrics.GeneralMetrics
-import kamon.servlet.v3.server.{JettySupport, SyncTestServlet}
+import kamon.servlet.v25.server.{JettySupport, SyncTestServlet}
 import kamon.testkit.MetricInspection
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
 import org.apache.http.impl.client.HttpClients

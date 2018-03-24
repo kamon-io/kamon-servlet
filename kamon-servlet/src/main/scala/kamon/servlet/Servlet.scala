@@ -17,7 +17,7 @@
 package kamon.servlet
 
 import com.typesafe.config.Config
-import kamon.Kamon
+import kamon.{Kamon, OnReconfigureHook}
 import kamon.servlet.server.RequestServlet
 import kamon.util.DynamicAccess
 
@@ -39,9 +39,11 @@ object Servlet {
     Kamon.config.getBoolean("kamon.servlet.add-http-status-code-as-metric-tag")
 
 
-  Kamon.onReconfigure((newConfig: Config) => {
-    nameGenerator = nameGeneratorFromConfig(newConfig)
-    addHttpStatusCodeAsMetricTag = addHttpStatusCodeAsMetricTagFromConfig(newConfig)
+  Kamon.onReconfigure(new OnReconfigureHook {
+    override def onReconfigure(newConfig: Config): Unit = {
+      nameGenerator = nameGeneratorFromConfig(newConfig)
+      addHttpStatusCodeAsMetricTag = addHttpStatusCodeAsMetricTagFromConfig(newConfig)
+    }
   })
 }
 

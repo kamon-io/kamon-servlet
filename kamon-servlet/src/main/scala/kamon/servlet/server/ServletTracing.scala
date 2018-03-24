@@ -20,22 +20,38 @@ import java.time.Instant
 import java.util.Locale
 
 import kamon.Kamon
-import kamon.context.{Context, TextMap}
+import kamon.context.{Context, Storage, TextMap}
+import kamon.servlet.Continuation
+import kamon.servlet.utils.RequestContinuation
 import kamon.trace.Span
-
-import scala.util.Try
 
 object ServletTracing {
 
-  def withTracing(request: RequestServlet, response: ResponseServlet, metricsContinuation: MetricsContinuation)
-                 (continuation: TracingContinuation => Try[Unit]): Try[Unit] = {
+  /**
+    * Create a new Span for representing the incoming request and propagate the Kamon context by joining
+    * to the incoming context or creating new one in other case.
+    *
+    * <p>It's written with continuation-passing style (CPS) to keep explicitly the order of metrics and trace managing.
+    *
+    * <p>The continuation function must be called with the {@link TracingContinuation} to continue the request processing.
+    *
+    * <p>{@link TracingContinuation} object has the callbacks for success or fail response processing.
+    *
+    * @param request: Request
+    * @param response: Response
+    * @param continuation: continuation function where it will be passed the final trace processing
+    * @tparam Hole: Value Type to be used to manage tracing on the resulted response
+    * @tparam Result: Final Result Type produce after computation of continuation provided
+    * @return
+    */
+  def withTracing[Hole <: TracingContinuation, Result](request: RequestServlet, response: ResponseServlet)
+                                                      (continuation: Continuation[TracingContinuation, Result]): Result = {
 
     val incomingContext = decodeContext(request)
     val serverSpan = createSpan(incomingContext, request)
 
-    Kamon.withContext(incomingContext.withKey(Span.ContextKey, serverSpan)) {
-      continuation(TracingContinuation(request, response, serverSpan, metricsContinuation))
-    }
+    val scope = Kamon.storeContext(incomingContext.withKey(Span.ContextKey, serverSpan))
+    continuation(TracingContinuation(request, response, scope, serverSpan))
   }
 
   private def createSpan(incomingContext: Context, request: RequestServlet): Span = {
@@ -62,24 +78,23 @@ object ServletTracing {
   }
 }
 
-case class TracingContinuation(request: RequestServlet, response: ResponseServlet,
-                               serverSpan: Span, continuation: MetricsContinuation) {
+case class TracingContinuation(request: RequestServlet, response: ResponseServlet, scope: Storage.Scope,
+                               serverSpan: Span) extends RequestContinuation {
 
   import TracingContinuation._
 
   def onSuccess(end: Instant): Unit = {
-    continuation.onSuccess(end)
     always(end)
-    serverSpan.finish(Kamon.clock().instant())
+    finishSpan(serverSpan, end)
   }
 
   def onError(end: Instant, error: Option[Throwable]): Unit = {
     always(end)
-    continuation.onError(end)
-    finishSpanWithError(serverSpan, Kamon.clock().instant(), error)
+    finishSpanWithError(serverSpan, end, error)
   }
 
   private def always(end: Instant): Unit = {
+    scope.close()
     handleStatusCode(serverSpan, response.status)
     serverSpan.tag("http.status_code", response.status)
   }
@@ -88,12 +103,16 @@ case class TracingContinuation(request: RequestServlet, response: ResponseServle
     if (code >= 500) span.addError("error")
     else if (code == 404) span.setOperationName("not-found")
 
+  private def finishSpan(serverSpan: Span, endTimestamp: Instant): Unit = {
+    serverSpan.finish(endTimestamp)
+  }
+
   private def finishSpanWithError(serverSpan: Span, endTimestamp: Instant, error: Option[Throwable]): Unit = {
     error match {
       case Some(e) => serverSpan.addError(errorMessage, e)
       case None    => serverSpan.addError(errorMessage)
     }
-    serverSpan.finish(endTimestamp)
+    finishSpan(serverSpan, endTimestamp)
   }
 }
 

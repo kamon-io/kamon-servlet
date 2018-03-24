@@ -17,39 +17,47 @@ val kamonVersion = "1.1.0"
 val jettyV9Version = "9.4.8.v20171121"
 val jettyV7Version = "7.6.21.v20160908"
 
-val kamonCore         = "io.kamon"              %% "kamon-core"             % kamonVersion
-val kamonTestkit      = "io.kamon"              %% "kamon-testkit"          % kamonVersion
+val kamonCore         = "io.kamon"                  %% "kamon-core"             % kamonVersion
+val kamonTestkit      = "io.kamon"                  %% "kamon-testkit"          % kamonVersion
 
-val servletApiV25     = "javax.servlet"         % "servlet-api"             % "2.5"
-val servletApiV3      = "javax.servlet"         %  "javax.servlet-api"      % "3.0.1"
-val jettyServerV9     = "org.eclipse.jetty"     %  "jetty-server"           % jettyV9Version
-val jettyServletV9    = "org.eclipse.jetty"     %  "jetty-servlet"          % jettyV9Version
-val jettyServletsV9   = "org.eclipse.jetty"     %  "jetty-servlets"         % jettyV9Version
+val servletApiV25     = "javax.servlet"             % "servlet-api"             % "2.5"
+val servletApiV3      = "javax.servlet"             %  "javax.servlet-api"      % "3.0.1"
+val jettyServerV9     = "org.eclipse.jetty"         %  "jetty-server"           % jettyV9Version
+val jettyServletV9    = "org.eclipse.jetty"         %  "jetty-servlet"          % jettyV9Version
+val jettyServletsV9   = "org.eclipse.jetty"         %  "jetty-servlets"         % jettyV9Version
 
-val jettyServerV7     = "org.eclipse.jetty"     %  "jetty-server"           % jettyV7Version
-val jettyServletV7    = "org.eclipse.jetty"     %  "jetty-servlet"          % jettyV7Version
-val jettyServletsV7   = "org.eclipse.jetty"     %  "jetty-servlets"         % jettyV7Version
-val sttp              = "com.softwaremill.sttp" %% "core"                   % "1.1.10"
-val logbackClassic    = "ch.qos.logback"        %  "logback-classic"        % "1.0.13"
-val scalatest         = "org.scalatest"         %% "scalatest"              % "3.0.1"
+val jettyServerV7     = "org.eclipse.jetty"         %  "jetty-server"           % jettyV7Version
+val jettyServletV7    = "org.eclipse.jetty"         %  "jetty-servlet"          % jettyV7Version
+val jettyServletsV7   = "org.eclipse.jetty"         %  "jetty-servlets"         % jettyV7Version
+val httpClient        = "org.apache.httpcomponents" %  "httpclient"             % "4.5.5"
+val logbackClassic    = "ch.qos.logback"            %  "logback-classic"        % "1.0.13"
+val scalatest         = "org.scalatest"             %% "scalatest"              % "3.0.1"
 
 
 lazy val root = (project in file("."))
-    .aggregate(kamonServlet, kamonServlet25, kamonServlet3, kamonServletBench25, kamonServletBench3)
+  .settings(noPublishing: _*)
+  .aggregate(kamonServlet, kamonServlet25, kamonServlet3, kamonServletBench25, kamonServletBench3)
 
 val commonSettings = Seq(
-  scalaVersion := "2.12.4",
+  scalaVersion := "2.12.5",
   resolvers += Resolver.mavenLocal,
-  resolvers += Resolver.bintrayRepo("kamon-io", "snapshots"),
-  crossScalaVersions := Seq("2.12.4", "2.11.12", "2.10.6"),
-  scalacOptions ++= Seq("-Ypartial-unification", "-language:higherKinds", "-language:postfixOps"),
-  scalacOptions ++= Seq("l:method", "l:classpath", "l:project")
+  crossScalaVersions := Seq("2.12.5", "2.11.12", "2.10.7"),
+  scalacOptions ++= Seq(
+//    "-Ypartial-unification",
+    "-language:higherKinds",
+    "-language:postfixOps") ++ (CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((2,10)) => Seq("-Yno-generic-signatures", "-target:jvm-1.7")
+    case Some((2,11)) => Seq("-Ybackend:GenBCode","-Ydelambdafy:method","-target:jvm-1.8")
+    case Some((2,12)) => Seq("-opt:l:method")
+    case _ => Seq.empty
+  })
 )
 
-lazy val kamonServlet = (project in file("kamon-servlet"))
-  .settings(name := "kamon-servlet")
+lazy val kamonServlet = Project("kamon-servlet", file("kamon-servlet"))
+  .settings(moduleName := "kamon-servlet")
   .settings(parallelExecution in Test := false)
   .settings(commonSettings: _*)
+  .settings(noPublishing: _*)
   .settings(
     libraryDependencies ++=
       compileScope(kamonCore) ++
@@ -63,7 +71,7 @@ lazy val kamonServlet25 = Project("kamon-servlet-25", file("kamon-servlet-2.5"))
     libraryDependencies ++=
       compileScope(kamonCore) ++
       providedScope(servletApiV25) ++
-      testScope(scalatest, kamonTestkit, logbackClassic, jettyServletsV7, jettyServerV7, jettyServletV7, sttp))
+      testScope(scalatest, kamonTestkit, logbackClassic, jettyServletsV7, jettyServerV7, jettyServletV7, httpClient))
   .dependsOn(kamonServlet)
 
 lazy val kamonServlet3 = Project("kamon-servlet-3", file("kamon-servlet-3.x.x"))
@@ -74,7 +82,7 @@ lazy val kamonServlet3 = Project("kamon-servlet-3", file("kamon-servlet-3.x.x"))
     libraryDependencies ++=
       compileScope(kamonCore) ++
       providedScope(servletApiV3) ++
-      testScope(scalatest, kamonTestkit, logbackClassic, jettyServletsV9, jettyServerV9, jettyServletV9, sttp))
+      testScope(scalatest, kamonTestkit, logbackClassic, jettyServletsV9, jettyServerV9, jettyServletV9, httpClient))
   .dependsOn(kamonServlet)
 
 lazy val kamonServletBench25 = Project("benchmarks-25", file("kamon-servlet-bench-2.5"))
@@ -83,9 +91,10 @@ lazy val kamonServletBench25 = Project("benchmarks-25", file("kamon-servlet-benc
   .settings(
     moduleName := "kamon-servlet-bench-2.5",
     fork in Test := true)
+  .settings(noPublishing: _*)
   .settings(
     libraryDependencies ++=
-      compileScope(jettyServletsV7, jettyServerV7, jettyServletV7, sttp) ++
+      compileScope(jettyServletsV7, jettyServerV7, jettyServletV7, httpClient) ++
         providedScope(servletApiV25))
   .dependsOn(kamonServlet25)
 
@@ -95,13 +104,9 @@ lazy val kamonServletBench3 = Project("benchmarks-3", file("kamon-servlet-bench-
   .settings(
     moduleName := "kamon-servlet-bench-3",
     fork in Test := true)
+  .settings(noPublishing: _*)
   .settings(
     libraryDependencies ++=
-      compileScope(jettyServletsV9, jettyServerV9, jettyServletV9, sttp) ++
+      compileScope(jettyServletsV9, jettyServerV9, jettyServletV9, httpClient) ++
         providedScope(servletApiV3))
   .dependsOn(kamonServlet3)
-
-def compileScope(deps: ModuleID*): Seq[ModuleID]  = deps map (_ % "compile")
-def testScope(deps: ModuleID*): Seq[ModuleID]     = deps map (_ % "test")
-def providedScope(deps: ModuleID*): Seq[ModuleID] = deps map (_ % "provided")
-def optionalScope(deps: ModuleID*): Seq[ModuleID] = deps map (_ % "compile,optional")

@@ -18,7 +18,7 @@ package kamon.servlet.v3.server
 
 import javax.servlet.ServletRequest
 import javax.servlet.http.HttpServletRequest
-import kamon.servlet.server.{KamonResponseHandler, RequestServlet}
+import kamon.servlet.server.RequestServlet
 
 case class RequestServletV3(underlineRequest: HttpServletRequest) extends RequestServlet {
 
@@ -40,8 +40,8 @@ case class RequestServletV3(underlineRequest: HttpServletRequest) extends Reques
 
   def isAsync: Boolean = underlineRequest.isAsyncStarted
 
-  def addListener(handler: KamonResponseHandler): Unit = {
-    underlineRequest.getAsyncContext.addListener(KamonAsyncListener(handler))
+  def addListener(listener: KamonAsyncListener): Unit = {
+    underlineRequest.getAsyncContext.addListener(listener)
   }
 }
 

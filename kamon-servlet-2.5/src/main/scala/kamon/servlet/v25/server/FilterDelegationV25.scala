@@ -16,21 +16,26 @@
 
 package kamon.servlet.v25.server
 
+import java.time.Instant
+
 import javax.servlet.FilterChain
 import kamon.Kamon
-import kamon.servlet.server.{FilterDelegation, TracingContinuation}
+import kamon.servlet.server.FilterDelegation
+import kamon.servlet.utils.RequestContinuation
 
 import scala.util.Try
 
-case class FilterDelegationV25(underlineChain: FilterChain) extends FilterDelegation[RequestServletV25, ResponseServletV25] {
+case class FilterDelegationV25(underlineChain: FilterChain)
+  extends FilterDelegation[RequestServletV25, ResponseServletV25, ResponseProcessingContinuation] {
 
-  override def chain(request: RequestServletV25, response: ResponseServletV25)(tracingContinuation: TracingContinuation): Try[Unit] = {
+  override def chain(request: RequestServletV25, response: ResponseServletV25)
+                    (continuation: ResponseProcessingContinuation): Try[Unit] = {
     val result = Try(underlineChain.doFilter(request.underlineRequest, response.underlineResponse))
-    handle(request, response)(result, tracingContinuation)
+    handle(request, response)(result, continuation)
   }
 
   private def handle(request: RequestServletV25, response: ResponseServletV25)
-                    (result: Try[Unit], continuation: TracingContinuation): Try[Unit] = {
+                    (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
     result
       .map { value =>
         continuation.onSuccess(Kamon.clock().instant())
@@ -42,4 +47,11 @@ case class FilterDelegationV25(underlineChain: FilterChain) extends FilterDelega
           error
       }
   }
+
+  override def fromUppers(continuations: RequestContinuation*): ResponseProcessingContinuation = ResponseProcessingContinuation(continuations: _*)
+}
+
+case class ResponseProcessingContinuation(continuations: RequestContinuation*) extends RequestContinuation {
+  override def onSuccess(end: Instant): Unit = continuations.foreach(_.onSuccess(end))
+  override def onError(end: Instant, error: Option[Throwable]): Unit = continuations.foreach(_.onError(end, error))
 }

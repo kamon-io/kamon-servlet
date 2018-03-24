@@ -18,7 +18,7 @@ package kamon.servlet.v25
 
 import javax.servlet._
 import kamon.servlet.KamonFilter
-import kamon.servlet.v25.server.{FilterDelegationV25, RequestServletV25, ResponseServletV25}
+import kamon.servlet.v25.server.{FilterDelegationV25, RequestServletV25, ResponseProcessingContinuation, ResponseServletV25}
 
 /**
   * Kamon Filter to tracing propagation and metrics gathering on a Servlet-Based Web App
@@ -27,9 +27,10 @@ import kamon.servlet.v25.server.{FilterDelegationV25, RequestServletV25, Respons
   */
 class KamonFilterV25 extends Filter with KamonFilter {
 
-  override type Request = RequestServletV25
-  override type Response = ResponseServletV25
-  override type Chain = FilterDelegationV25
+  override type Request           = RequestServletV25
+  override type Response          = ResponseServletV25
+  override type ChainContinuation = ResponseProcessingContinuation
+  override type Chain             = FilterDelegationV25
 
   override def init(filterConfig: FilterConfig): Unit = ()
 

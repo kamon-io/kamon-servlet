@@ -38,10 +38,6 @@ object ResponseServletV25 {
     new ResponseServletV25(ResponseWithStatusV25(response))
   }
 
-  def apply(response: HttpServletResponse): ResponseServletV25 = {
-    new ResponseServletV25(ResponseWithStatusV25(response))
-  }
-
 
 
 }
@@ -123,6 +119,5 @@ final class ResponseWithStatusV25(response: HttpServletResponse) extends HttpSer
 }
 
 object ResponseWithStatusV25 {
-  def apply(response: HttpServletResponse): ResponseWithStatusV25 = new ResponseWithStatusV25(response)
   def apply(response: ServletResponse): ResponseWithStatusV25 = new ResponseWithStatusV25(response.asInstanceOf[HttpServletResponse])
 }

@@ -20,14 +20,13 @@ import java.util.concurrent.TimeUnit
 
 import kamon.Kamon
 import kamon.servlet.v25.server.JettyServer
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
+import org.apache.http.impl.client.HttpClients
 import org.openjdk.jmh.annotations._
 import org.openjdk.jmh.infra.Blackhole
 
 @State(Scope.Benchmark)
 class KamonFilterBenchmark {
-
-  import com.softwaremill.sttp._
-  implicit val backend: SttpBackend[Id, Nothing] = HttpURLConnectionBackend()
 
   val server = new JettyServer()
   var port: Int = 0
@@ -44,8 +43,12 @@ class KamonFilterBenchmark {
     server.stop()
   }
 
-  private def get(path: String, headers: Seq[(String, String)] = Seq()): Id[Response[String]] = {
-    sttp.get(Uri("localhost", port).path(path)).headers(headers: _*).send()
+  private val httpClient = HttpClients.createDefault()
+
+  private def get(path: String, headers: Seq[(String, String)] = Seq()): CloseableHttpResponse = {
+    val request = new HttpGet(s"http://127.0.0.1:$port$path")
+    headers.foreach { case (name, v) => request.addHeader(name, v) }
+    httpClient.execute(request)
   }
 
   /**

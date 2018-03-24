@@ -16,58 +16,61 @@
 
 package kamon.servlet.v3.server
 
+import java.time.Instant
+
 import javax.servlet._
 import kamon.Kamon
-import kamon.servlet.server.{FilterDelegation, KamonResponseHandler, TracingContinuation}
+import kamon.servlet.server.FilterDelegation
+import kamon.servlet.utils.RequestContinuation
 
 import scala.util.Try
 
 
-case class FilterDelegationV3(underlineChain: FilterChain) extends FilterDelegation[RequestServletV3, ResponseServletV3] {
+case class FilterDelegationV3(underlineChain: FilterChain)
+  extends FilterDelegation[RequestServletV3, ResponseServletV3, ResponseProcessingContinuation] {
 
-  override def chain(request: RequestServletV3, response: ResponseServletV3)(tracingContinuation: TracingContinuation): Try[Unit] = {
+  override def chain(request: RequestServletV3, response: ResponseServletV3)
+                    (continuation: ResponseProcessingContinuation): Try[Unit] = {
     val result = Try(underlineChain.doFilter(request.underlineRequest, response.underlineResponse))
-    onFinish(request, response)(result, tracingContinuation)
+    onFinish(request, response)(result, continuation)
   }
 
-
-  private def onFinish(request: RequestServletV3, response: ResponseServletV3): (Try[Unit], TracingContinuation) => Try[Unit] = {
+  private def onFinish(request: RequestServletV3, response: ResponseServletV3): (Try[Unit], ResponseProcessingContinuation) => Try[Unit] = {
     if (request.isAsync) handleAsync(request, response)
-    else                        handleSync(request, response)
+    else                 handleSync(request, response)
   }
 
   private def handleAsync(request: RequestServletV3, response: ResponseServletV3)
-                         (result: Try[Unit], continuation: TracingContinuation): Try[Unit] = {
-    val handler = FromTracingResponseHandler(continuation)
-    request.addListener(handler)
+                         (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
+    request.addListener(KamonAsyncListener(continuation))
     result
   }
 
   private def handleSync(request: RequestServletV3, response: ResponseServletV3)
-                        (result: Try[Unit], continuation: TracingContinuation): Try[Unit] = {
-    val handler = FromTracingResponseHandler(continuation)
+                        (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
     result
       .map { value =>
-        handler.onComplete()
+        continuation.onSuccess(Kamon.clock().instant())
         value
       }
       .recover {
         case error: Throwable =>
-          handler.onError(Some(error))
+          continuation.onError(Kamon.clock().instant(), Some(error))
           error
       }
   }
+
+  override def fromUppers(continuations: RequestContinuation*): ResponseProcessingContinuation = ResponseProcessingContinuation(continuations: _*)
 }
 
-final case class KamonAsyncListener(handler: KamonResponseHandler) extends AsyncListener {
-  override def onError(event: AsyncEvent): Unit = handler.onError(Option(event.getThrowable))
-  override def onComplete(event: AsyncEvent): Unit = handler.onComplete()
-  override def onStartAsync(event: AsyncEvent): Unit = handler.onStartAsync()
-  override def onTimeout(event: AsyncEvent): Unit = handler.onError(Option(event.getThrowable))
+final case class KamonAsyncListener(handler: ResponseProcessingContinuation) extends AsyncListener {
+  override def onError(event: AsyncEvent): Unit = handler.onError(Kamon.clock().instant(), Option(event.getThrowable))
+  override def onComplete(event: AsyncEvent): Unit = handler.onSuccess(Kamon.clock().instant())
+  override def onStartAsync(event: AsyncEvent): Unit = ()
+  override def onTimeout(event: AsyncEvent): Unit = handler.onError(Kamon.clock().instant(), Option(event.getThrowable))
 }
 
-case class FromTracingResponseHandler(continuation: TracingContinuation) extends KamonResponseHandler {
-  override def onError(error: Option[Throwable]): Unit = continuation.onError(Kamon.clock().instant(), error) // FIXME: save Throwable
-  override def onComplete(): Unit = continuation.onSuccess(Kamon.clock().instant())
-  override def onStartAsync(): Unit = ()
+case class ResponseProcessingContinuation(continuations: RequestContinuation*) extends RequestContinuation {
+  override def onSuccess(end: Instant): Unit = continuations.foreach(_.onSuccess(end))
+  override def onError(end: Instant, error: Option[Throwable]): Unit = continuations.foreach(_.onError(end, error))
 }

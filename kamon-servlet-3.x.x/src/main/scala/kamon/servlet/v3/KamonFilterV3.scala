@@ -18,7 +18,7 @@ package kamon.servlet.v3
 
 import javax.servlet._
 import kamon.servlet.KamonFilter
-import kamon.servlet.v3.server.{FilterDelegationV3, RequestServletV3, ResponseServletV3}
+import kamon.servlet.v3.server.{FilterDelegationV3, RequestServletV3, ResponseProcessingContinuation, ResponseServletV3}
 
 /**
   * Kamon Filter to tracing propagation and metrics gathering on a Servlet-Based Web App
@@ -27,9 +27,10 @@ import kamon.servlet.v3.server.{FilterDelegationV3, RequestServletV3, ResponseSe
   */
 class KamonFilterV3 extends Filter with KamonFilter {
 
-  override type Request  = RequestServletV3
-  override type Response = ResponseServletV3
-  override type Chain    = FilterDelegationV3
+  override type Request           = RequestServletV3
+  override type Response          = ResponseServletV3
+  override type ChainContinuation = ResponseProcessingContinuation
+  override type Chain             = FilterDelegationV3
 
   override def init(filterConfig: FilterConfig): Unit = ()
 

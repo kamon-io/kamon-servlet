@@ -21,10 +21,9 @@ import java.time.temporal.ChronoUnit
 
 import kamon.Kamon
 import kamon.metric.{Histogram, RangeSampler}
+import kamon.servlet.Continuation
 import kamon.servlet.Metrics.{GeneralMetrics, RequestTimeMetrics, ResponseTimeMetrics, ServiceMetrics}
-import kamon.servlet.utils.OnlyOnce
-
-import scala.util.Try
+import kamon.servlet.utils.{OnlyOnce, RequestContinuation}
 
 
 object ServletMetrics {
@@ -40,23 +39,30 @@ object ServletMetrics {
 trait ServletMetrics {
 
   /**
-    * Processing metrics around the request.
-    * It's written with continuation-passing style (CPS) to keep explicitly the order of metrics and tracing managing.
+    *
+    * <P>Processing metrics around the request.
+    *
+    * <p>It's written with continuation-passing style (CPS) to keep explicitly the order of metrics and trace managing.
+    *
+    * <p>The continuation function must be called with the {@link MetricsContinuation} to continue the request processing.
+    *
+    * <p>{@link MetricsContinuation} object has the callbacks for success or fail response processing.
     *
     * @param start: instant since request start to process
     * @param request; request in process
     * @param response: response in process
-    * @param continuation: continuation function where it will be passed the callback for metrics processing
+    * @param continuation: continuation function where it will be passed the final metrics processing
+    * @tparam Result: Final Result Type produce after computation of continuation provided
     * @return unit with possible exception caught
     */
-  def withMetrics(start: Instant, request: RequestServlet, response: ResponseServlet)
-                 (continuation: MetricsContinuation => Try[Unit]): Try[Unit]
+  def withMetrics[Result](start: Instant, request: RequestServlet, response: ResponseServlet)
+                         (continuation: Continuation[MetricsContinuation, Result]): Result
 }
 
 case class DefaultServletMetrics(serviceMetrics: ServiceMetrics) extends ServletMetrics {
 
-  override def withMetrics(start: Instant, request: RequestServlet, response: ResponseServlet)
-                          (continuation: MetricsContinuation => Try[Unit]): Try[Unit] = {
+  override def withMetrics[Result](start: Instant, request: RequestServlet, response: ResponseServlet)
+                                  (continuation: Continuation[MetricsContinuation, Result]): Result = {
 
     val serviceMetrics = ServiceMetrics(GeneralMetrics(), RequestTimeMetrics(), ResponseTimeMetrics())
     serviceMetrics.generalMetrics.activeRequests.increment()
@@ -67,8 +73,8 @@ case class DefaultServletMetrics(serviceMetrics: ServiceMetrics) extends Servlet
 
 case object NoOpServletMetrics extends ServletMetrics {
 
-  override def withMetrics(start: Instant, request: RequestServlet, response: ResponseServlet)
-                          (continuation: MetricsContinuation => Try[Unit]): Try[Unit] = {
+  override def withMetrics[Result](start: Instant, request: RequestServlet, response: ResponseServlet)
+                                  (continuation: Continuation[MetricsContinuation, Result]): Result = {
     continuation(NoOpMetricsContinuation)
   }
 }
@@ -76,9 +82,9 @@ case object NoOpServletMetrics extends ServletMetrics {
 /**
   * It's passed to the continuation function to generate metrics after request processing
   */
-trait MetricsContinuation {
+trait MetricsContinuation extends RequestContinuation {
   def onSuccess(end: Instant): Unit
-  def onError(end: Instant): Unit
+  def onError(end: Instant, error: Option[Throwable]): Unit
 }
 
 /**
@@ -97,7 +103,7 @@ case class DefaultMetricsContinuation(request: RequestServlet, response: Respons
     handler.onComplete()
   }
 
-  def onError(end: Instant): Unit = {
+  def onError(end: Instant, error: Option[Throwable]): Unit = {
     val handler = MetricsResponseHandler(request, response, start, end, serviceMetrics)
     handler.onError()
   }
@@ -105,14 +111,14 @@ case class DefaultMetricsContinuation(request: RequestServlet, response: Respons
 
 case object NoOpMetricsContinuation extends MetricsContinuation {
   override def onSuccess(end: Instant): Unit = ()
-  override def onError(end: Instant): Unit = ()
+  override def onError(end: Instant, error: Option[Throwable]): Unit = ()
 }
 
 case class MetricsResponseHandler(request: RequestServlet, response: ResponseServlet,
                                   start: Instant, end: Instant, serviceMetrics: ServiceMetrics)
   extends OnlyOnce {
 
-  private val elapsed = start.until(Kamon.clock().instant(), ChronoUnit.NANOS)
+  private val elapsed = start.until(end, ChronoUnit.NANOS)
 
   def onError(): Unit = onlyOnce {
     always()

@@ -18,10 +18,13 @@ package kamon.servlet.v3
 
 import java.time.temporal.ChronoUnit
 
+import com.typesafe.config.ConfigFactory
 import kamon.Kamon
 import kamon.servlet.v3.server.{AsyncTestServlet, JettySupport}
 import kamon.trace.Span
 import kamon.trace.Span.TagValue
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
+import org.apache.http.impl.client.HttpClients
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
 
@@ -35,15 +38,12 @@ class AsyncServerInstrumentationSpec extends WordSpec
   with SpanReporter
   with JettySupport {
 
-  import com.softwaremill.sttp._
-  implicit val backend: SttpBackend[Id, Nothing] = HttpURLConnectionBackend()
-
-  override val servlet = AsyncTestServlet()()
+  override val servlet: AsyncTestServlet = AsyncTestServlet()()
 
   override protected def beforeAll(): Unit = {
+    Kamon.reconfigure(ConfigFactory.load())
     startServer()
     startRegistration()
-    Kamon.config()
   }
 
   override protected def afterAll(): Unit = {
@@ -51,14 +51,18 @@ class AsyncServerInstrumentationSpec extends WordSpec
     stopServer()
   }
 
-  private def get(path: String): Id[Response[String]] = {
-    sttp.get(Uri("localhost", port).path(path)).send()
+  private val httpClient = HttpClients.createDefault()
+
+  private def get(path: String, headers: Seq[(String, String)] = Seq()): CloseableHttpResponse = {
+    val request = new HttpGet(s"http://127.0.0.1:$port$path")
+    headers.foreach { case (name, v) => request.addHeader(name, v) }
+    httpClient.execute(request)
   }
 
   "The Server instrumentation on Async Servlet 3.x.x" should {
     "propagate the current context and respond to the ok action" in {
 
-      get("/async/tracing/ok").code shouldBe 200
+      get("/async/tracing/ok").getStatusLine.getStatusCode shouldBe 200
 
       eventually(timeout(3 seconds)) {
 
@@ -79,7 +83,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
 
     "propagate the current context and respond to the not-found action" in {
 
-      get("/async/tracing/not-found").code shouldBe 404
+      get("/async/tracing/not-found").getStatusLine.getStatusCode shouldBe 404
 
       eventually(timeout(3 seconds)) {
         val span = reporter.nextSpan().value
@@ -97,7 +101,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
     }
 
     "propagate the current context and respond to the error action" in {
-      get("/async/tracing/error").code shouldBe 500
+      get("/async/tracing/error").getStatusLine.getStatusCode shouldBe 500
 
       eventually(timeout(3 seconds)) {
         val span = reporter.nextSpan().value

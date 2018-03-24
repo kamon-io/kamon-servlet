@@ -16,6 +16,8 @@
 
 package kamon.servlet.server
 
+import kamon.servlet.utils.RequestContinuation
+
 import scala.util.Try
 
 
@@ -32,7 +34,9 @@ trait ResponseServlet {
   def status: Int
 }
 
-trait FilterDelegation[Request  <: RequestServlet, Response <: ResponseServlet] {
+trait FilterDelegation[Request  <: RequestServlet, Response <: ResponseServlet, Continuation <: RequestContinuation] {
 
-  def chain(request: Request, response: Response)(tracingContinuation: TracingContinuation): Try[Unit]
+  def chain(request: Request, response: Response)(continuation: Continuation): Try[Unit]
+
+  def fromUppers(continuations: RequestContinuation*): Continuation
 }

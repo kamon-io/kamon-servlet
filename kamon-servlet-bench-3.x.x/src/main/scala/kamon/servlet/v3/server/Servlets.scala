@@ -39,17 +39,19 @@ case class AsyncTestServlet(defaultDuration: Long = Servlets.defaultDuration)
   override def doGet(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
     val asyncContext = req.startAsync(req, resp)
 
-    asyncContext.start(() => {
-      asyncContext.getRequest.asInstanceOf[HttpServletRequest].getRequestURI match {
-        case "/async/tracing/not-found" ⇒ withDelay(durationNotFound) { resp.setStatus(404) }
-        case "/async/tracing/error"     ⇒ withDelay(durationError) { resp.setStatus(500) }
-        case "/async/tracing/ok"        ⇒ withDelay(durationOk) { resp.setStatus(200) }
-        case "/async/tracing/slowly"    ⇒ withDelay(durationSlowly) { resp.setStatus(200) }
-        case other                      ⇒
-          resp.getOutputStream.println(s"Something wrong on the test. Endpoint unmapped: $other")
-          resp.setStatus(404)
+    asyncContext.start(new Runnable {
+      override def run(): Unit = {
+        asyncContext.getRequest.asInstanceOf[HttpServletRequest].getRequestURI match {
+          case "/async/tracing/not-found" ⇒ withDelay(durationNotFound) { resp.setStatus(404) }
+          case "/async/tracing/error"     ⇒ withDelay(durationError) { resp.setStatus(500) }
+          case "/async/tracing/ok"        ⇒ withDelay(durationOk) { resp.setStatus(200) }
+          case "/async/tracing/slowly"    ⇒ withDelay(durationSlowly) { resp.setStatus(200) }
+          case other                      ⇒
+            resp.getOutputStream.println(s"Something wrong on the test. Endpoint unmapped: $other")
+            resp.setStatus(404)
+        }
+        asyncContext.complete()
       }
-      asyncContext.complete()
     })
   }
 }
