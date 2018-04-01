@@ -37,6 +37,10 @@ class KamonFilterV25 extends Filter with KamonFilter {
   override def destroy(): Unit = ()
 
   override def doFilter(request: ServletRequest, response: ServletResponse, chain: FilterChain): Unit = {
-    executeAround(RequestServletV25(request), ResponseServletV25(response), FilterDelegationV25(chain))
+    executeAround(toRequestAdapter(request), toResponseAdapter(response), toFilterDelegation(chain))
   }
+
+  def toFilterDelegation(chain: FilterChain): Chain = FilterDelegationV25(chain)
+  def toRequestAdapter(request: ServletRequest): Request = RequestServletV25(request)
+  def toResponseAdapter(response: ServletResponse): Response = ResponseServletV25(response)
 }
