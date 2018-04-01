@@ -65,7 +65,7 @@ class HttpMetricsSpec extends WordSpec
 
   private val parallelRequestExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(15))
 
-  "The Http Metrics generation" should {
+  "The Http Metrics generation on Servlet 2.5" should {
     "track the total of active requests" in {
       for(_ <- 1 to 10) yield  {
         Future { get("/sync/tracing/slowly") }(parallelRequestExecutor)

@@ -34,9 +34,9 @@ trait ResponseServlet {
   def status: Int
 }
 
-trait FilterDelegation[Request  <: RequestServlet, Response <: ResponseServlet, Continuation <: RequestContinuation] {
+trait FilterDelegation[Request  <: RequestServlet, Response <: ResponseServlet, Continuation <: RequestContinuation[Request, Response]] {
 
   def chain(request: Request, response: Response)(continuation: Continuation): Try[Unit]
 
-  def fromUppers(continuations: RequestContinuation*): Continuation
+  def joinContinuations(continuations: RequestContinuation[Request, Response]*): Continuation
 }

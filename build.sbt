@@ -57,7 +57,6 @@ lazy val kamonServlet = Project("kamon-servlet", file("kamon-servlet"))
   .settings(moduleName := "kamon-servlet")
   .settings(parallelExecution in Test := false)
   .settings(commonSettings: _*)
-  .settings(noPublishing: _*)
   .settings(
     libraryDependencies ++=
       compileScope(kamonCore) ++

@@ -28,17 +28,18 @@ trait KamonFilter {
 
   type Request           <: RequestServlet
   type Response          <: ResponseServlet
-  type ChainContinuation <: RequestContinuation
+  type ChainContinuation <: RequestContinuation[Request, Response]
   type Chain             <: FilterDelegation[Request, Response, ChainContinuation]
 
-  val servletMetrics = ServletMetrics()
+  val servletMetrics: ServletMetrics = ServletMetrics()
+  val servletTracing: ServletTracing.type = ServletTracing
 
   def executeAround(request: Request, response: Response, next: Chain): Unit = {
     val start = Kamon.clock().instant()
 
     servletMetrics.withMetrics(start, request, response) { (metricsContinuation: MetricsContinuation) =>
-      ServletTracing.withTracing(request, response) { (tracingContinuation: TracingContinuation) =>
-        next.chain(request, response)(next.fromUppers(tracingContinuation, metricsContinuation))
+      servletTracing.withTracing(request, response) { (tracingContinuation: TracingContinuation) =>
+        next.chain(request, response)(next.joinContinuations(tracingContinuation, metricsContinuation))
       }
     } get
 

@@ -26,7 +26,7 @@ import kamon.servlet.utils.RequestContinuation
 import scala.util.Try
 
 
-case class FilterDelegationV3(underlineChain: FilterChain)
+class FilterDelegationV3(val underlineChain: FilterChain)
   extends FilterDelegation[RequestServletV3, ResponseServletV3, ResponseProcessingContinuation] {
 
   override def chain(request: RequestServletV3, response: ResponseServletV3)
@@ -35,42 +35,50 @@ case class FilterDelegationV3(underlineChain: FilterChain)
     onFinish(request, response)(result, continuation)
   }
 
-  private def onFinish(request: RequestServletV3, response: ResponseServletV3): (Try[Unit], ResponseProcessingContinuation) => Try[Unit] = {
+  protected def onFinish(request: RequestServletV3, response: ResponseServletV3): (Try[Unit], ResponseProcessingContinuation) => Try[Unit] = {
     if (request.isAsync) handleAsync(request, response)
     else                 handleSync(request, response)
   }
 
-  private def handleAsync(request: RequestServletV3, response: ResponseServletV3)
+  protected def handleAsync(request: RequestServletV3, response: ResponseServletV3)
                          (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
-    request.addListener(KamonAsyncListener(continuation))
+    request.addListener(KamonAsyncListener(request, response)(continuation))
     result
   }
 
-  private def handleSync(request: RequestServletV3, response: ResponseServletV3)
+  protected def handleSync(request: RequestServletV3, response: ResponseServletV3)
                         (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
     result
       .map { value =>
-        continuation.onSuccess(Kamon.clock().instant())
+        continuation.onSuccess(request, response)(Kamon.clock().instant())
         value
       }
       .recover {
         case error: Throwable =>
-          continuation.onError(Kamon.clock().instant(), Some(error))
+          continuation.onError(request, response)(Kamon.clock().instant(), Some(error))
           error
       }
   }
 
-  override def fromUppers(continuations: RequestContinuation*): ResponseProcessingContinuation = ResponseProcessingContinuation(continuations: _*)
+  override def joinContinuations(continuations: RequestContinuation[RequestServletV3, ResponseServletV3]*): ResponseProcessingContinuation = ResponseProcessingContinuation(continuations: _*)
 }
 
-final case class KamonAsyncListener(handler: ResponseProcessingContinuation) extends AsyncListener {
-  override def onError(event: AsyncEvent): Unit = handler.onError(Kamon.clock().instant(), Option(event.getThrowable))
-  override def onComplete(event: AsyncEvent): Unit = handler.onSuccess(Kamon.clock().instant())
+object FilterDelegationV3 {
+  def apply(underlineChain: FilterChain): FilterDelegationV3 = new FilterDelegationV3(underlineChain)
+}
+
+final case class KamonAsyncListener(request: RequestServletV3, response: ResponseServletV3)(handler: ResponseProcessingContinuation) extends AsyncListener {
+  override def onError(event: AsyncEvent): Unit = handler.onError(request, response)(Kamon.clock().instant(), Option(event.getThrowable))
+  override def onComplete(event: AsyncEvent): Unit = handler.onSuccess(request, response)(Kamon.clock().instant())
   override def onStartAsync(event: AsyncEvent): Unit = ()
-  override def onTimeout(event: AsyncEvent): Unit = handler.onError(Kamon.clock().instant(), Option(event.getThrowable))
+  override def onTimeout(event: AsyncEvent): Unit = handler.onError(request, response)(Kamon.clock().instant(), Option(event.getThrowable))
 }
 
-case class ResponseProcessingContinuation(continuations: RequestContinuation*) extends RequestContinuation {
-  override def onSuccess(end: Instant): Unit = continuations.foreach(_.onSuccess(end))
-  override def onError(end: Instant, error: Option[Throwable]): Unit = continuations.foreach(_.onError(end, error))
+case class ResponseProcessingContinuation(continuations: RequestContinuation[RequestServletV3, ResponseServletV3]*) extends RequestContinuation[RequestServletV3, ResponseServletV3] {
+
+  type Request = RequestServletV3
+  type Response = ResponseServletV3
+
+  override def onSuccess(request: Request, response: Response)(end: Instant): Unit = continuations.foreach(_.onSuccess(request, response)(end))
+  override def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit = continuations.foreach(_.onError(request, response)(end, error))
 }

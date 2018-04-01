@@ -65,7 +65,7 @@ class NoOpHttpMetricsSpec extends WordSpec
 
   private val parallelRequestExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(15))
 
-  "The NoOp HttpMetrics" should {
+  "The NoOp HttpMetrics on Sync Servlet 3.x.x" should {
     "not generate metrics" in {
 
       for(_ <- 1 to 10) yield  {
