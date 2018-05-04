@@ -20,7 +20,7 @@ import javax.servlet.ServletResponse
 import javax.servlet.http.HttpServletResponse
 import kamon.servlet.server.ResponseServlet
 
-case class ResponseServletV3(underlineResponse: HttpServletResponse) extends ResponseServlet {
+class ResponseServletV3(val underlineResponse: HttpServletResponse) extends ResponseServlet {
   override def status: Int = underlineResponse.getStatus
 }
 

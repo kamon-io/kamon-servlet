@@ -43,7 +43,6 @@ val commonSettings = Seq(
   resolvers += Resolver.mavenLocal,
   crossScalaVersions := Seq("2.12.5", "2.11.12", "2.10.7"),
   scalacOptions ++= Seq(
-//    "-Ypartial-unification",
     "-language:higherKinds",
     "-language:postfixOps") ++ (CrossVersion.partialVersion(scalaVersion.value) match {
     case Some((2,10)) => Seq("-Yno-generic-signatures", "-target:jvm-1.7")
