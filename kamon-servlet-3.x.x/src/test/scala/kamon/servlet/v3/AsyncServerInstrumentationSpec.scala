@@ -127,30 +127,14 @@ class AsyncServerInstrumentationSpec extends WordSpec
         val span = reporter.nextSpan().value
         val spanTags = stringTag(span) _
 
-        println(s"*************************************** span.operationName: ${span.operationName}")
-        println(s"*************************************** spanTags(span.kind): ${spanTags("span.kind")}")
-        println(s"*************************************** spanTags(component): ${spanTags("component")}")
-        println(s"*************************************** spanTags(http.method): ${spanTags("http.method")}")
-        println(s"*************************************** spanTags(http.url): ${spanTags("http.url")}")
-        println(s"*************************************** span.tags(error): ${span.tags("error")}")
-        println(s"*************************************** spanTags(error.object): ${spanTags("error.object")}")
-        println(s"*************************************** span.tags(http.status_code): ${span.tags("http.status_code")}")
-        println(s"*************************************** span.context.parentID.string: ${span.context.parentID.string}")
-
         span.operationName shouldBe "async.tracing.exception.get"
         spanTags("span.kind") shouldBe "server"
         spanTags("component") shouldBe "servlet.server"
         spanTags("http.method") shouldBe "GET"
-        println("........")
         spanTags("http.url") shouldBe "/async/tracing/exception"
         span.tags("error") shouldBe TagValue.True
         spanTags("error.object") shouldBe TracingContinuation.errorMessage
-        println("........")
         span.tags("http.status_code") shouldBe TagValue.Number(500)
-        println("........")
-
-        span.context.parentID.string shouldBe ""
-        println("........")
       }
     }
   }
