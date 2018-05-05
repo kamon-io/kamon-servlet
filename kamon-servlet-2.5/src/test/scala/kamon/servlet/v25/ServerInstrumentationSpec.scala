@@ -116,6 +116,26 @@ class ServerInstrumentationSpec extends WordSpec
       }
     }
 
+    "propagate the current context and respond to a servlet with abnormal termination" in {
+      get("/sync/tracing/exception").getStatusLine.getStatusCode shouldBe 200
+
+      eventually(timeout(3 seconds)) {
+        val span = reporter.nextSpan().value
+        val spanTags = stringTag(span) _
+
+        span.operationName shouldBe "sync.tracing.exception.get"
+        spanTags("span.kind") shouldBe "server"
+        spanTags("component") shouldBe "servlet.server"
+        spanTags("http.method") shouldBe "GET"
+        spanTags("http.url") shouldBe "/sync/tracing/exception"
+        span.tags("error") shouldBe TagValue.True
+        spanTags("error.object") shouldBe "Blowing up from internal servlet"
+        span.tags("http.status_code") shouldBe TagValue.Number(500)
+
+        span.context.parentID.string shouldBe ""
+      }
+    }
+
     "resume the incoming context and respond to the ok action" in {
       get("/sync/tracing/ok", IncomingContext.headersB3).getStatusLine.getStatusCode shouldBe 200
 

@@ -22,6 +22,7 @@ import javax.servlet.FilterChain
 import kamon.Kamon
 import kamon.servlet.server.FilterDelegation
 import kamon.servlet.utils.RequestContinuation
+import kamon.servlet.v25.KamonFilterV25Config
 
 import scala.util.Try
 
@@ -61,5 +62,8 @@ case class ResponseProcessingContinuation(continuations: RequestContinuation[Req
   type Response = ResponseServletV25
 
   override def onSuccess(request: Request, response: Response)(end: Instant): Unit = continuations.foreach(_.onSuccess(request, response)(end))
-  override def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit = continuations.foreach(_.onError(request, response)(end, error))
+  override def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit = {
+    val resp = KamonFilterV25Config.errorResponseHandler.withRightStatus(response)
+    continuations.foreach(_.onError(request, resp)(end, error))
+  }
 }

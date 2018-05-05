@@ -28,7 +28,7 @@ case class RequestServletV3(underlineRequest: HttpServletRequest) extends Reques
 
   override def url: String = underlineRequest.getRequestURL.toString
 
-  override def headers: Map[String, String] = {
+  override lazy val headers: Map[String, String] = {
     val headersIterator = underlineRequest.getHeaderNames
     val headers = Map.newBuilder[String, String]
     while (headersIterator.hasMoreElements) {

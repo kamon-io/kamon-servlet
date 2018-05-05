@@ -130,7 +130,7 @@ class ServerInstrumentationSpec extends WordSpec
         spanTags("http.url") shouldBe "/sync/tracing/exception"
         span.tags("error") shouldBe TagValue.True
         spanTags("error.object") shouldBe "Blowing up from internal servlet"
-        span.tags("http.status_code") shouldBe TagValue.Number(200)
+        span.tags("http.status_code") shouldBe TagValue.Number(500)
 
         span.context.parentID.string shouldBe ""
       }

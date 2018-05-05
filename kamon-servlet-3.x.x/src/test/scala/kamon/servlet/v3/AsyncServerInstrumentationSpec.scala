@@ -20,6 +20,7 @@ import java.time.temporal.ChronoUnit
 
 import com.typesafe.config.ConfigFactory
 import kamon.Kamon
+import kamon.servlet.server.TracingContinuation
 import kamon.servlet.v3.server.{AsyncTestServlet, JettySupport}
 import kamon.trace.Span
 import kamon.trace.Span.TagValue
@@ -116,6 +117,40 @@ class AsyncServerInstrumentationSpec extends WordSpec
         span.tags("http.status_code") shouldBe TagValue.Number(500)
 
         span.from.until(span.to, ChronoUnit.MILLIS) shouldBe >= (servlet.durationError.toLong)
+      }
+    }
+
+    "propagate the current context and respond to a servlet with abnormal termination" in {
+      get("/async/tracing/exception").getStatusLine.getStatusCode shouldBe 500
+
+      eventually(timeout(3 seconds)) {
+        val span = reporter.nextSpan().value
+        val spanTags = stringTag(span) _
+
+        println(s"*************************************** span.operationName: ${span.operationName}")
+        println(s"*************************************** spanTags(span.kind): ${spanTags("span.kind")}")
+        println(s"*************************************** spanTags(component): ${spanTags("component")}")
+        println(s"*************************************** spanTags(http.method): ${spanTags("http.method")}")
+        println(s"*************************************** spanTags(http.url): ${spanTags("http.url")}")
+        println(s"*************************************** span.tags(error): ${span.tags("error")}")
+        println(s"*************************************** spanTags(error.object): ${spanTags("error.object")}")
+        println(s"*************************************** span.tags(http.status_code): ${span.tags("http.status_code")}")
+        println(s"*************************************** span.context.parentID.string: ${span.context.parentID.string}")
+
+        span.operationName shouldBe "async.tracing.exception.get"
+        spanTags("span.kind") shouldBe "server"
+        spanTags("component") shouldBe "servlet.server"
+        spanTags("http.method") shouldBe "GET"
+        println("........")
+        spanTags("http.url") shouldBe "/async/tracing/exception"
+        span.tags("error") shouldBe TagValue.True
+        spanTags("error.object") shouldBe TracingContinuation.errorMessage
+        println("........")
+        span.tags("http.status_code") shouldBe TagValue.Number(500)
+        println("........")
+
+        span.context.parentID.string shouldBe ""
+        println("........")
       }
     }
   }
