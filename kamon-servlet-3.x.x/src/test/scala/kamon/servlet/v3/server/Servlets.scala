@@ -20,7 +20,7 @@ import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 
 object Servlets {
 
-  val defaultDuration: Long = 1000 // millis
+  val defaultDuration: Long = 100 // millis
 
   def withDelay[A](timeInMillis: Long)(thunk: => A): A = {
     if (timeInMillis > 0) Thread.sleep(timeInMillis)
