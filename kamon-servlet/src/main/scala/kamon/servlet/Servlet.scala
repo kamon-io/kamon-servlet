@@ -23,11 +23,8 @@ import kamon.util.DynamicAccess
 
 object Servlet {
   @volatile var nameGenerator: NameGenerator = nameGeneratorFromConfig(Kamon.config())
-  @volatile var addHttpStatusCodeAsMetricTag: Boolean = addHttpStatusCodeAsMetricTagFromConfig(Kamon.config())
 
   def generateOperationName(request: RequestServlet): String = nameGenerator.generateOperationName(request)
-
-  def generateHttpClientOperationName(request: RequestServlet): String = nameGenerator.generateHttpClientOperationName(request)
 
   private def nameGeneratorFromConfig(config: Config): NameGenerator = {
     val dynamic = new DynamicAccess(getClass.getClassLoader)
@@ -35,21 +32,15 @@ object Servlet {
     dynamic.createInstanceFor[NameGenerator](nameGeneratorFQCN, Nil).get
   }
 
-  private def addHttpStatusCodeAsMetricTagFromConfig(config: Config): Boolean =
-    Kamon.config.getBoolean("kamon.servlet.add-http-status-code-as-metric-tag")
-
-
   Kamon.onReconfigure(new OnReconfigureHook {
     override def onReconfigure(newConfig: Config): Unit = {
       nameGenerator = nameGeneratorFromConfig(newConfig)
-      addHttpStatusCodeAsMetricTag = addHttpStatusCodeAsMetricTagFromConfig(newConfig)
     }
   })
 }
 
 trait NameGenerator {
   def generateOperationName(request: RequestServlet): String
-  def generateHttpClientOperationName(request: RequestServlet): String
 }
 
 class DefaultNameGenerator extends NameGenerator {
@@ -60,10 +51,6 @@ class DefaultNameGenerator extends NameGenerator {
 
   private val localCache = TrieMap.empty[String, String]
   private val normalizePattern = """\$([^<]+)<[^>]+>""".r
-
-  override def generateHttpClientOperationName(request: RequestServlet): String = {
-    request.url
-  }
 
   override def generateOperationName(request: RequestServlet): String = {
 
