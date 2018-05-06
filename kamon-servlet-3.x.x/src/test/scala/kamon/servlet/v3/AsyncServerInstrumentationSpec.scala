@@ -21,11 +21,10 @@ import java.time.temporal.ChronoUnit
 import com.typesafe.config.ConfigFactory
 import kamon.Kamon
 import kamon.servlet.server.TracingContinuation
+import kamon.servlet.v3.client.HttpClientSupport
 import kamon.servlet.v3.server.{AsyncTestServlet, JettySupport}
 import kamon.trace.Span
 import kamon.trace.Span.TagValue
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
-import org.apache.http.impl.client.HttpClients
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
 
@@ -37,7 +36,8 @@ class AsyncServerInstrumentationSpec extends WordSpec
   with Eventually
   with OptionValues
   with SpanReporter
-  with JettySupport {
+  with JettySupport
+  with HttpClientSupport {
 
   override val servlet: AsyncTestServlet = AsyncTestServlet()()
 
@@ -50,14 +50,6 @@ class AsyncServerInstrumentationSpec extends WordSpec
   override protected def afterAll(): Unit = {
     stopRegistration()
     stopServer()
-  }
-
-  private val httpClient = HttpClients.createDefault()
-
-  private def get(path: String, headers: Seq[(String, String)] = Seq()): CloseableHttpResponse = {
-    val request = new HttpGet(s"http://127.0.0.1:$port$path")
-    headers.foreach { case (name, v) => request.addHeader(name, v) }
-    httpClient.execute(request)
   }
 
   "The Server instrumentation on Async Servlet 3.x.x" should {
