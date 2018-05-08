@@ -24,6 +24,7 @@ import kamon.trace.Span
 import kamon.trace.Span.TagValue
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
+import kamon.servlet.{Servlet => KServlet}
 
 import scala.concurrent.duration._
 
@@ -61,7 +62,7 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "sync.tracing.ok.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/ok"
         span.tags("http.status_code") shouldBe TagValue.Number(200)
@@ -80,7 +81,7 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "not-found"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/not-found"
         span.tags("http.status_code") shouldBe TagValue.Number(404)
@@ -98,7 +99,7 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "sync.tracing.error.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/error"
         span.tags("error") shouldBe TagValue.True
@@ -117,7 +118,7 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "sync.tracing.exception.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/exception"
         span.tags("error") shouldBe TagValue.True
@@ -138,7 +139,7 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "sync.tracing.ok.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/ok"
         span.tags("http.status_code") shouldBe TagValue.Number(200)

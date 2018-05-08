@@ -19,6 +19,7 @@ package kamon.servlet
 import kamon.Kamon
 import kamon.metric.MeasurementUnit._
 import kamon.metric.{Histogram, HistogramMetric, RangeSampler}
+import kamon.servlet.{Servlet => KServlet}
 
 
 object Metrics {
@@ -39,7 +40,7 @@ object Metrics {
 
   object GeneralMetrics {
     def apply(): GeneralMetrics = {
-      val generalTags = Map("component" -> "servlet-server")
+      val generalTags = Map("component" -> KServlet.tags.serverComponent)
       new GeneralMetrics(
         Kamon.rangeSampler("active-requests").refine(generalTags),
         Kamon.histogram("abnormal-termination").refine(generalTags),
@@ -55,7 +56,7 @@ object Metrics {
     */
   case class ResponseTimeMetrics(responseTimeMetric:HistogramMetric) {
     def forStatusCode(statusCode: String): Histogram = {
-      val responseMetricsTags = Map("component" -> "servlet-server", "status-code" -> statusCode)
+      val responseMetricsTags = Map("component" -> KServlet.tags.serverComponent, "status-code" -> statusCode)
       responseTimeMetric.refine(responseMetricsTags)
     }
   }
@@ -74,7 +75,7 @@ object Metrics {
 
   case class RequestTimeMetrics(requestTimeMetric:HistogramMetric) {
     def forMethod(method: String): Histogram = {
-      val requestMetricsTags = Map("component" -> "servlet-server", "method" -> method)
+      val requestMetricsTags = Map("component" -> KServlet.tags.serverComponent, "method" -> method)
       requestTimeMetric.refine(requestMetricsTags)
     }
   }

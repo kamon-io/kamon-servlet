@@ -27,6 +27,7 @@ import kamon.trace.Span
 import kamon.trace.Span.TagValue
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
+import kamon.servlet.{Servlet => KServlet}
 
 import scala.concurrent.duration._
 
@@ -64,7 +65,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "async.tracing.ok.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/async/tracing/ok"
         span.tags("http.status_code") shouldBe TagValue.Number(200)
@@ -84,7 +85,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "not-found"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/async/tracing/not-found"
         span.tags("http.status_code") shouldBe TagValue.Number(404)
@@ -102,7 +103,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "async.tracing.error.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/async/tracing/error"
         span.tags("error") shouldBe TagValue.True
@@ -121,7 +122,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "async.tracing.exception.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/async/tracing/exception"
         span.tags("error") shouldBe TagValue.True

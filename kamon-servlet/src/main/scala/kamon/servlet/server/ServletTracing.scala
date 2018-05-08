@@ -59,7 +59,7 @@ object ServletTracing {
     Kamon.buildSpan(operationName)
       .asChildOf(incomingContext.get(Span.ContextKey))
       .withMetricTag("span.kind", "server")
-      .withMetricTag("component", "servlet.server")
+      .withMetricTag("component", kamon.servlet.Servlet.tags.serverComponent)
       .withTag("http.method", request.getMethod.toUpperCase(Locale.ENGLISH))
       .withTag("http.url", request.uri)
       .start()

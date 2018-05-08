@@ -22,9 +22,11 @@ import kamon.servlet.server.RequestServlet
 import kamon.util.DynamicAccess
 
 object Servlet {
-  @volatile var nameGenerator: NameGenerator = nameGeneratorFromConfig(Kamon.config())
+  @volatile private var nameGenerator: NameGenerator = nameGeneratorFromConfig(Kamon.config())
+  @volatile private var _tags: Tags = Tags(Kamon.config())
 
   def generateOperationName(request: RequestServlet): String = nameGenerator.generateOperationName(request)
+  def tags: Tags = _tags
 
   private def nameGeneratorFromConfig(config: Config): NameGenerator = {
     val dynamic = new DynamicAccess(getClass.getClassLoader)
@@ -35,9 +37,15 @@ object Servlet {
   Kamon.onReconfigure(new OnReconfigureHook {
     override def onReconfigure(newConfig: Config): Unit = {
       nameGenerator = nameGeneratorFromConfig(newConfig)
+      _tags = Tags(newConfig)
     }
   })
+
+  case class Tags(config: Config) {
+    val serverComponent: String = config.getString("kamon.servlet.tags.server-component")
+  }
 }
+
 
 trait NameGenerator {
   def generateOperationName(request: RequestServlet): String
