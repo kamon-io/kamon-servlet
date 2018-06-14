@@ -49,9 +49,9 @@ object ServletTracing {
 
     val incomingContext = decodeContext(request)
     val serverSpan = createSpan(incomingContext, request)
-
-    val scope = Kamon.storeContext(incomingContext.withKey(Span.ContextKey, serverSpan))
-    continuation(TracingContinuation(scope, serverSpan))
+    Kamon.withContext(incomingContext.withKey(Span.ContextKey, serverSpan)) {
+      continuation(TracingContinuation(Kamon.currentContext(), serverSpan))
+    }
   }
 
   private def createSpan(incomingContext: Context, request: RequestServlet): Span = {
@@ -78,7 +78,7 @@ object ServletTracing {
   }
 }
 
-case class TracingContinuation(scope: Storage.Scope, serverSpan: Span) extends RequestContinuation[RequestServlet, ResponseServlet] {
+case class TracingContinuation(scope: Context, serverSpan: Span) extends RequestContinuation[RequestServlet, ResponseServlet] {
 
   import TracingContinuation._
 
@@ -96,7 +96,6 @@ case class TracingContinuation(scope: Storage.Scope, serverSpan: Span) extends R
   }
 
   private def always(response: Response, end: Instant): Unit = {
-    scope.close()
     handleStatusCode(serverSpan, response.status)
     serverSpan.tag("http.status_code", response.status)
   }
