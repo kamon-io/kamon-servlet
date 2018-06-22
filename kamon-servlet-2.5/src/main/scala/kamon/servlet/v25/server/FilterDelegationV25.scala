@@ -22,10 +22,11 @@ import javax.servlet.FilterChain
 import kamon.Kamon
 import kamon.servlet.server.FilterDelegation
 import kamon.servlet.utils.RequestContinuation
+import kamon.servlet.v25.KamonFilterV25Config
 
 import scala.util.Try
 
-case class FilterDelegationV25(underlineChain: FilterChain)
+class FilterDelegationV25(val underlineChain: FilterChain)
   extends FilterDelegation[RequestServletV25, ResponseServletV25, ResponseProcessingContinuation] {
 
   override def chain(request: RequestServletV25, response: ResponseServletV25)
@@ -34,24 +35,35 @@ case class FilterDelegationV25(underlineChain: FilterChain)
     handle(request, response)(result, continuation)
   }
 
-  private def handle(request: RequestServletV25, response: ResponseServletV25)
+  protected def handle(request: RequestServletV25, response: ResponseServletV25)
                     (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
     result
       .map { value =>
-        continuation.onSuccess(Kamon.clock().instant())
+        continuation.onSuccess(request, response)(Kamon.clock().instant())
         value
       }
       .recover {
         case error: Throwable =>
-          continuation.onError(Kamon.clock().instant(), Some(error))
+          continuation.onError(request, response)(Kamon.clock().instant(), Some(error))
           error
       }
   }
 
-  override def fromUppers(continuations: RequestContinuation*): ResponseProcessingContinuation = ResponseProcessingContinuation(continuations: _*)
+  override def joinContinuations(continuations: RequestContinuation[RequestServletV25, ResponseServletV25]*): ResponseProcessingContinuation = ResponseProcessingContinuation(continuations: _*)
 }
 
-case class ResponseProcessingContinuation(continuations: RequestContinuation*) extends RequestContinuation {
-  override def onSuccess(end: Instant): Unit = continuations.foreach(_.onSuccess(end))
-  override def onError(end: Instant, error: Option[Throwable]): Unit = continuations.foreach(_.onError(end, error))
+object FilterDelegationV25 {
+  def apply(underlineChain: FilterChain): FilterDelegationV25 = new FilterDelegationV25(underlineChain)
+}
+
+case class ResponseProcessingContinuation(continuations: RequestContinuation[RequestServletV25, ResponseServletV25]*) extends RequestContinuation[RequestServletV25, ResponseServletV25] {
+
+  type Request = RequestServletV25
+  type Response = ResponseServletV25
+
+  override def onSuccess(request: Request, response: Response)(end: Instant): Unit = continuations.foreach(_.onSuccess(request, response)(end))
+  override def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit = {
+    val resp = KamonFilterV25Config.errorResponseHandler.withRightStatus(response)
+    continuations.foreach(_.onError(request, resp)(end, error))
+  }
 }

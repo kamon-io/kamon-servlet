@@ -20,7 +20,7 @@ import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 
 object Servlets {
 
-  val defaultDuration: Long = 1000 // millis
+  val defaultDuration: Long = 100 // millis
 
   def withDelay[A](timeInMillis: Long)(thunk: => A): A = {
     if (timeInMillis > 0) Thread.sleep(timeInMillis)
@@ -44,6 +44,7 @@ case class AsyncTestServlet(defaultDuration: Long = Servlets.defaultDuration)
         asyncContext.getRequest.asInstanceOf[HttpServletRequest].getRequestURI match {
           case "/async/tracing/not-found" ⇒ withDelay(durationNotFound) { resp.setStatus(404) }
           case "/async/tracing/error"     ⇒ withDelay(durationError) { resp.setStatus(500) }
+          case "/async/tracing/exception" ⇒ throw new RuntimeException("Blowing up from internal servlet")
           case "/async/tracing/ok"        ⇒ withDelay(durationOk) { resp.setStatus(200) }
           case "/async/tracing/slowly"    ⇒ withDelay(durationSlowly) { resp.setStatus(200) }
           case other                      ⇒
@@ -62,6 +63,7 @@ case class SyncTestServlet(defaultDelay: Long = 1000) extends HttpServlet {
   override def doGet(req: HttpServletRequest, resp: HttpServletResponse): Unit = req.getRequestURI match {
     case "/sync/tracing/not-found" ⇒ resp.setStatus(404)
     case "/sync/tracing/error"     ⇒ resp.setStatus(500)
+    case "/sync/tracing/exception" ⇒ throw new RuntimeException("Blowing up from internal servlet")
     case "/sync/tracing/ok"        ⇒ resp.setStatus(200)
     case "/sync/tracing/slowly"    ⇒ withDelay(defaultDelay) { resp.setStatus(200) }
     case other                     ⇒

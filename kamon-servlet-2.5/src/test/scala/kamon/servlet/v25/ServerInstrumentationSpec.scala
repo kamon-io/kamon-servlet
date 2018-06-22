@@ -18,13 +18,13 @@ package kamon.servlet.v25
 
 import com.typesafe.config.ConfigFactory
 import kamon.Kamon
+import kamon.servlet.v25.client.HttpClientSupport
 import kamon.servlet.v25.server.{JettySupport, SyncTestServlet}
 import kamon.trace.Span
 import kamon.trace.Span.TagValue
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
-import org.apache.http.impl.client.HttpClients
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
+import kamon.servlet.{Servlet => KServlet}
 
 import scala.concurrent.duration._
 
@@ -34,7 +34,8 @@ class ServerInstrumentationSpec extends WordSpec
   with Eventually
   with OptionValues
   with SpanReporter
-  with JettySupport {
+  with JettySupport
+  with HttpClientSupport {
 
   override val servlet = SyncTestServlet()
 
@@ -49,14 +50,6 @@ class ServerInstrumentationSpec extends WordSpec
     stopServer()
   }
 
-  private val httpClient = HttpClients.createDefault()
-
-  private def get(path: String, headers: Seq[(String, String)] = Seq()): CloseableHttpResponse = {
-    val request = new HttpGet(s"http://127.0.0.1:$port$path")
-    headers.foreach { case (name, v) => request.addHeader(name, v) }
-    httpClient.execute(request)
-  }
-
   "The Server instrumentation on Servlet 2.5" should {
     "propagate the current context and respond to the ok action" in {
 
@@ -69,7 +62,7 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "sync.tracing.ok.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/ok"
         span.tags("http.status_code") shouldBe TagValue.Number(200)
@@ -88,7 +81,7 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "not-found"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/not-found"
         span.tags("http.status_code") shouldBe TagValue.Number(404)
@@ -106,10 +99,30 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "sync.tracing.error.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/error"
         span.tags("error") shouldBe TagValue.True
+        span.tags("http.status_code") shouldBe TagValue.Number(500)
+
+        span.context.parentID.string shouldBe ""
+      }
+    }
+
+    "propagate the current context and respond to a servlet with abnormal termination" in {
+      get("/sync/tracing/exception").getStatusLine.getStatusCode shouldBe 200
+
+      eventually(timeout(3 seconds)) {
+        val span = reporter.nextSpan().value
+        val spanTags = stringTag(span) _
+
+        span.operationName shouldBe "sync.tracing.exception.get"
+        spanTags("span.kind") shouldBe "server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
+        spanTags("http.method") shouldBe "GET"
+        spanTags("http.url") shouldBe "/sync/tracing/exception"
+        span.tags("error") shouldBe TagValue.True
+        spanTags("error.object") shouldBe "Blowing up from internal servlet"
         span.tags("http.status_code") shouldBe TagValue.Number(500)
 
         span.context.parentID.string shouldBe ""
@@ -126,7 +139,7 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "sync.tracing.ok.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/ok"
         span.tags("http.status_code") shouldBe TagValue.Number(200)

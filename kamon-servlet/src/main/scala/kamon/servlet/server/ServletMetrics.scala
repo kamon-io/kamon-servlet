@@ -67,7 +67,7 @@ case class DefaultServletMetrics(serviceMetrics: ServiceMetrics) extends Servlet
     val serviceMetrics = ServiceMetrics(GeneralMetrics(), RequestTimeMetrics(), ResponseTimeMetrics())
     serviceMetrics.generalMetrics.activeRequests.increment()
 
-    continuation(DefaultMetricsContinuation(request, response, start, serviceMetrics))
+    continuation(DefaultMetricsContinuation(start, serviceMetrics))
   }
 }
 
@@ -82,36 +82,36 @@ case object NoOpServletMetrics extends ServletMetrics {
 /**
   * It's passed to the continuation function to generate metrics after request processing
   */
-trait MetricsContinuation extends RequestContinuation {
-  def onSuccess(end: Instant): Unit
-  def onError(end: Instant, error: Option[Throwable]): Unit
+trait MetricsContinuation extends RequestContinuation[RequestServlet, ResponseServlet] {
+  type Request = RequestServlet
+  type Response = ResponseServlet
+
+  def onSuccess(request: Request, response: Response)(end: Instant): Unit
+  def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit
 }
 
 /**
   * Default implementation of MetricsContinuation
-  * @param request: request in process
-  * @param response: response in process
   * @param start: instant since request start to process
   * @param serviceMetrics: metrics generator
   */
-case class DefaultMetricsContinuation(request: RequestServlet, response: ResponseServlet,
-                                      start: Instant, serviceMetrics: ServiceMetrics) extends MetricsContinuation {
+case class DefaultMetricsContinuation(start: Instant, serviceMetrics: ServiceMetrics) extends MetricsContinuation {
 
 
-  def onSuccess(end: Instant): Unit = {
+  def onSuccess(request: Request, response: Response)(end: Instant): Unit = {
     val handler = MetricsResponseHandler(request, response, start, end, serviceMetrics)
     handler.onComplete()
   }
 
-  def onError(end: Instant, error: Option[Throwable]): Unit = {
+  def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit = {
     val handler = MetricsResponseHandler(request, response, start, end, serviceMetrics)
     handler.onError()
   }
 }
 
 case object NoOpMetricsContinuation extends MetricsContinuation {
-  override def onSuccess(end: Instant): Unit = ()
-  override def onError(end: Instant, error: Option[Throwable]): Unit = ()
+  override def onSuccess(request: Request, response: Response)(end: Instant): Unit = ()
+  override def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit = ()
 }
 
 case class MetricsResponseHandler(request: RequestServlet, response: ResponseServlet,

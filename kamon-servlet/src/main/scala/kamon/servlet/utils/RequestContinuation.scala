@@ -2,9 +2,11 @@ package kamon.servlet.utils
 
 import java.time.Instant
 
-trait RequestContinuation {
+import kamon.servlet.server.{RequestServlet, ResponseServlet}
 
-  def onSuccess(end: Instant): Unit
-  def onError(end: Instant, error: Option[Throwable]): Unit
+trait RequestContinuation[-Req <: RequestServlet, -Res <: ResponseServlet] {
+
+  def onSuccess(request: Req, response: Res)(end: Instant): Unit
+  def onError(request: Req, response: Res)(end: Instant, error: Option[Throwable]): Unit
 
 }

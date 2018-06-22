@@ -20,13 +20,14 @@ import java.time.temporal.ChronoUnit
 
 import com.typesafe.config.ConfigFactory
 import kamon.Kamon
+import kamon.servlet.server.TracingContinuation
+import kamon.servlet.v3.client.HttpClientSupport
 import kamon.servlet.v3.server.{AsyncTestServlet, JettySupport}
 import kamon.trace.Span
 import kamon.trace.Span.TagValue
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
-import org.apache.http.impl.client.HttpClients
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
+import kamon.servlet.{Servlet => KServlet}
 
 import scala.concurrent.duration._
 
@@ -36,7 +37,8 @@ class AsyncServerInstrumentationSpec extends WordSpec
   with Eventually
   with OptionValues
   with SpanReporter
-  with JettySupport {
+  with JettySupport
+  with HttpClientSupport {
 
   override val servlet: AsyncTestServlet = AsyncTestServlet()()
 
@@ -51,14 +53,6 @@ class AsyncServerInstrumentationSpec extends WordSpec
     stopServer()
   }
 
-  private val httpClient = HttpClients.createDefault()
-
-  private def get(path: String, headers: Seq[(String, String)] = Seq()): CloseableHttpResponse = {
-    val request = new HttpGet(s"http://127.0.0.1:$port$path")
-    headers.foreach { case (name, v) => request.addHeader(name, v) }
-    httpClient.execute(request)
-  }
-
   "The Server instrumentation on Async Servlet 3.x.x" should {
     "propagate the current context and respond to the ok action" in {
 
@@ -71,7 +65,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "async.tracing.ok.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/async/tracing/ok"
         span.tags("http.status_code") shouldBe TagValue.Number(200)
@@ -91,7 +85,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "not-found"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/async/tracing/not-found"
         span.tags("http.status_code") shouldBe TagValue.Number(404)
@@ -109,13 +103,31 @@ class AsyncServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "async.tracing.error.get"
         spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe "servlet.server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/async/tracing/error"
         span.tags("error") shouldBe TagValue.True
         span.tags("http.status_code") shouldBe TagValue.Number(500)
 
         span.from.until(span.to, ChronoUnit.MILLIS) shouldBe >= (servlet.durationError.toLong)
+      }
+    }
+
+    "propagate the current context and respond to a servlet with abnormal termination" in {
+      get("/async/tracing/exception").getStatusLine.getStatusCode shouldBe 500
+
+      eventually(timeout(3 seconds)) {
+        val span = reporter.nextSpan().value
+        val spanTags = stringTag(span) _
+
+        span.operationName shouldBe "async.tracing.exception.get"
+        spanTags("span.kind") shouldBe "server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
+        spanTags("http.method") shouldBe "GET"
+        spanTags("http.url") shouldBe "/async/tracing/exception"
+        span.tags("error") shouldBe TagValue.True
+        spanTags("error.object") shouldBe TracingContinuation.errorMessage
+        span.tags("http.status_code") shouldBe TagValue.Number(500)
       }
     }
   }

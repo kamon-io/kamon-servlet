@@ -23,7 +23,7 @@ import javax.servlet.ServletResponse
 import javax.servlet.http.{HttpServletResponse, HttpServletResponseWrapper}
 import kamon.servlet.server.ResponseServlet
 
-case class ResponseServletV25(underlineResponse: HttpServletResponse) extends ResponseServlet {
+class ResponseServletV25(val underlineResponse: HttpServletResponse) extends ResponseServlet {
   override def status: Int = {
     StatusResponseExtractor.status(underlineResponse).getOrElse(ResponseServletV25.defaultStatus)
   }

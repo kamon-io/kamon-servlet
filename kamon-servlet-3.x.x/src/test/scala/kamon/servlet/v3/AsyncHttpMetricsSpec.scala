@@ -19,12 +19,12 @@ package kamon.servlet.v3
 import java.util.concurrent.Executors
 
 import com.typesafe.config.ConfigFactory
+import javax.servlet.http.HttpServlet
 import kamon.Kamon
 import kamon.servlet.Metrics.{GeneralMetrics, ResponseTimeMetrics}
+import kamon.servlet.v3.client.HttpClientSupport
 import kamon.servlet.v3.server.{AsyncTestServlet, JettySupport}
 import kamon.testkit.MetricInspection
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
-import org.apache.http.impl.client.HttpClients
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.SpanSugar
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
@@ -40,9 +40,10 @@ class AsyncHttpMetricsSpec extends WordSpec
   with OptionValues
   with SpanReporter
   with BeforeAndAfterAll
-  with JettySupport {
+  with JettySupport
+  with HttpClientSupport {
 
-  override val servlet = AsyncTestServlet(defaultDuration = 10)(durationSlowly = 1000)
+  override val servlet: HttpServlet = AsyncTestServlet(defaultDuration = 10)(durationSlowly = 1000)
 
   override protected def beforeAll(): Unit = {
     Kamon.reconfigure(ConfigFactory.load())
@@ -55,17 +56,9 @@ class AsyncHttpMetricsSpec extends WordSpec
     stopServer()
   }
 
-  private val httpClient = HttpClients.createDefault()
-
-  private def get(path: String, headers: Seq[(String, String)] = Seq()): CloseableHttpResponse = {
-    val request = new HttpGet(s"http://127.0.0.1:$port$path")
-    headers.foreach { case (name, v) => request.addHeader(name, v) }
-    httpClient.execute(request)
-  }
-
   private val parallelRequestExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(15))
 
-  "The Async Http Metrics generation" should {
+  "The Http Metrics generation on Async Servlet 3.x.x" should {
     "track the total of active requests" in {
       for(_ <- 1 to 10) yield  {
         Future { get("/async/tracing/slowly") }(parallelRequestExecutor)

@@ -18,14 +18,14 @@ package kamon.servlet.v25
 
 import javax.servlet._
 import kamon.servlet.KamonFilter
-import kamon.servlet.v25.server.{FilterDelegationV25, RequestServletV25, ResponseProcessingContinuation, ResponseServletV25}
+import kamon.servlet.v25.server._
 
 /**
   * Kamon Filter to tracing propagation and metrics gathering on a Servlet-Based Web App
   *
   * Concrete filter implementation for Servlet v2.5
   */
-class KamonFilterV25 extends Filter with KamonFilter {
+class KamonFilterV25 extends Filter with KamonFilter with OncePerRequestFilter {
 
   override type Request           = RequestServletV25
   override type Response          = ResponseServletV25
@@ -36,7 +36,11 @@ class KamonFilterV25 extends Filter with KamonFilter {
 
   override def destroy(): Unit = ()
 
-  override def doFilter(request: ServletRequest, response: ServletResponse, chain: FilterChain): Unit = {
-    executeAround(RequestServletV25(request), ResponseServletV25(response), FilterDelegationV25(chain))
+  override def filterOnlyOnce(request: ServletRequest, response: ServletResponse, chain: FilterChain): Unit = {
+    executeAround(toRequestAdapter(request), toResponseAdapter(response), toFilterDelegation(chain))
   }
+
+  def toFilterDelegation(chain: FilterChain): Chain = FilterDelegationV25(chain)
+  def toRequestAdapter(request: ServletRequest): Request = RequestServletV25(request)
+  def toResponseAdapter(response: ServletResponse): Response = ResponseServletV25(response)
 }

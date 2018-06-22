@@ -32,11 +32,12 @@ case class SyncTestServlet(defaultDelay: Long = 1000) extends HttpServlet {
   import Servlets._
 
   override def doGet(req: HttpServletRequest, resp: HttpServletResponse): Unit = req.getRequestURI match {
-    case "/sync/tracing/not-found" ⇒ resp.setStatus(404)
-    case "/sync/tracing/error"     ⇒ resp.setStatus(500)
-    case "/sync/tracing/ok"        ⇒ resp.setStatus(200)
-    case "/sync/tracing/slowly"    ⇒ withDelay(defaultDelay) { resp.setStatus(200) }
-    case other                     ⇒
+    case "/sync/tracing/not-found"           ⇒ resp.setStatus(404)
+    case "/sync/tracing/error"               ⇒ resp.setStatus(500)
+    case "/sync/tracing/exception" ⇒ throw new RuntimeException("Blowing up from internal servlet")
+    case "/sync/tracing/ok"                  ⇒ resp.setStatus(200)
+    case "/sync/tracing/slowly"              ⇒ withDelay(defaultDelay) { resp.setStatus(200) }
+    case other                               ⇒
       resp.getOutputStream.println(s"Something wrong on the test. Endpoint unmapped: $other")
       resp.setStatus(404)
   }

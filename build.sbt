@@ -39,11 +39,10 @@ lazy val root = (project in file("."))
   .aggregate(kamonServlet, kamonServlet25, kamonServlet3, kamonServletBench25, kamonServletBench3)
 
 val commonSettings = Seq(
-  scalaVersion := "2.12.5",
+  scalaVersion := "2.12.6",
   resolvers += Resolver.mavenLocal,
-  crossScalaVersions := Seq("2.12.5", "2.11.12", "2.10.7"),
+  crossScalaVersions := Seq("2.12.6", "2.11.12", "2.10.7"),
   scalacOptions ++= Seq(
-//    "-Ypartial-unification",
     "-language:higherKinds",
     "-language:postfixOps") ++ (CrossVersion.partialVersion(scalaVersion.value) match {
     case Some((2,10)) => Seq("-Yno-generic-signatures", "-target:jvm-1.7")
@@ -57,7 +56,6 @@ lazy val kamonServlet = Project("kamon-servlet", file("kamon-servlet"))
   .settings(moduleName := "kamon-servlet")
   .settings(parallelExecution in Test := false)
   .settings(commonSettings: _*)
-  .settings(noPublishing: _*)
   .settings(
     libraryDependencies ++=
       compileScope(kamonCore) ++
