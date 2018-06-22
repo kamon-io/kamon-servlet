@@ -20,7 +20,10 @@ import javax.servlet.ServletRequest
 import javax.servlet.http.HttpServletRequest
 import kamon.servlet.server.RequestServlet
 
+import scala.collection.immutable.TreeMap
+
 case class RequestServletV3(underlineRequest: HttpServletRequest) extends RequestServlet {
+  import RequestServletV3._
 
   override def getMethod: String = underlineRequest.getMethod
 
@@ -35,7 +38,7 @@ case class RequestServletV3(underlineRequest: HttpServletRequest) extends Reques
       val name = headersIterator.nextElement()
       headers += (name -> underlineRequest.getHeader(name))
     }
-    headers.result()
+    headersMapPrototype ++ headers.result()
   }
 
   def isAsync: Boolean = underlineRequest.isAsyncStarted
@@ -46,6 +49,13 @@ case class RequestServletV3(underlineRequest: HttpServletRequest) extends Reques
 }
 
 object RequestServletV3 {
+
+  val headersMapPrototype: TreeMap[String, String] = {
+    val insensitiveCaseOrdering = new Ordering[String] {
+      override def compare(x: String, y: String): Int = x.compareToIgnoreCase(y)
+    }
+    new TreeMap()(insensitiveCaseOrdering)
+  }
 
   def apply(request: ServletRequest): RequestServletV3 = {
     new RequestServletV3(request.asInstanceOf[HttpServletRequest])

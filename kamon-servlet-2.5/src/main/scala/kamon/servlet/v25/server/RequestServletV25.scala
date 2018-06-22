@@ -22,8 +22,10 @@ import kamon.servlet.server.RequestServlet
 import kamon.trace.SpanCodec
 import org.slf4j.LoggerFactory
 
+import scala.collection.immutable.TreeMap
+
 case class RequestServletV25(underlineRequest: HttpServletRequest) extends RequestServlet {
-  private val log = LoggerFactory.getLogger(classOf[RequestServletV25])
+  import RequestServletV25._
 
   override def getMethod: String = underlineRequest.getMethod
 
@@ -31,13 +33,22 @@ case class RequestServletV25(underlineRequest: HttpServletRequest) extends Reque
 
   override def url: String = underlineRequest.getRequestURL.toString
 
-  override def headers: Map[String, String] = RequestServletV25.decodeHeaders(underlineRequest)
+  override def headers: Map[String, String] = {
+    headersMapPrototype ++ decodeHeaders(underlineRequest)
+  }
 }
 
 object RequestServletV25 {
   import SpanCodec.B3.{Headers => B3Headers}
 
   private val log = LoggerFactory.getLogger(classOf[RequestServletV25])
+
+  val headersMapPrototype: TreeMap[String, String] = {
+    val insensitiveCaseOrdering = new Ordering[String] {
+      override def compare(x: String, y: String): Int = x.compareToIgnoreCase(y)
+    }
+    new TreeMap()(insensitiveCaseOrdering)
+  }
 
   def apply(request: ServletRequest): RequestServletV25 = {
     new RequestServletV25(request.asInstanceOf[HttpServletRequest])
