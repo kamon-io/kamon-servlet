@@ -53,7 +53,10 @@ val commonSettings = Seq(
 )
 
 lazy val kamonServlet = Project("kamon-servlet", file("kamon-servlet"))
-  .settings(moduleName := "kamon-servlet")
+  .settings(Seq(
+    bintrayPackage := "kamon-servlet",
+    moduleName := "kamon-servlet",
+    resolvers += Resolver.bintrayRepo("kamon-io", "snapshots")))
   .settings(parallelExecution in Test := false)
   .settings(commonSettings: _*)
   .settings(
@@ -62,7 +65,10 @@ lazy val kamonServlet = Project("kamon-servlet", file("kamon-servlet"))
       testScope(scalatest, kamonTestkit, logbackClassic))
 
 lazy val kamonServlet25 = Project("kamon-servlet-25", file("kamon-servlet-2.5"))
-  .settings(moduleName := "kamon-servlet-2.5")
+  .settings(Seq(
+    bintrayPackage := "kamon-servlet",
+    moduleName := "kamon-servlet-2.5",
+    resolvers += Resolver.bintrayRepo("kamon-io", "snapshots")))
   .settings(parallelExecution in Test := false)
   .settings(commonSettings: _*)
   .settings(
@@ -73,7 +79,10 @@ lazy val kamonServlet25 = Project("kamon-servlet-25", file("kamon-servlet-2.5"))
   .dependsOn(kamonServlet)
 
 lazy val kamonServlet3 = Project("kamon-servlet-3", file("kamon-servlet-3.x.x"))
-  .settings(moduleName := "kamon-servlet-3.x.x")
+  .settings(Seq(
+    bintrayPackage := "kamon-servlet",
+    moduleName := "kamon-servlet-3",
+    resolvers += Resolver.bintrayRepo("kamon-io", "snapshots")))
   .settings(parallelExecution in Test := false)
   .settings(commonSettings: _*)
   .settings(
