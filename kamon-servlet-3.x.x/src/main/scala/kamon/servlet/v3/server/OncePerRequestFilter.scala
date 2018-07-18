@@ -5,7 +5,7 @@ import javax.servlet.{Filter, FilterChain, ServletRequest, ServletResponse}
 trait OncePerRequestFilter { self: Filter =>
   import OncePerRequestFilter._
 
-  override final def doFilter(request: ServletRequest, response: ServletResponse, filterChain: FilterChain): Unit = {
+  override def doFilter(request: ServletRequest, response: ServletResponse, filterChain: FilterChain): Unit = {
     val hasAlreadyFilteredAttribute = request.getAttribute(attribute) != null
     if (hasAlreadyFilteredAttribute)
       filterChain.doFilter(request, response)
