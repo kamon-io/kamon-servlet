@@ -58,14 +58,14 @@ class DefaultNameGenerator extends NameGenerator {
   import scala.collection.concurrent.TrieMap
 
   private val localCache = TrieMap.empty[String, String]
-  private val normalizePattern = """\$([^<]+)<[^>]+>""".r
+  private val normalizePattern = """\/(\d+)""".r
 
   override def generateOperationName(request: RequestServlet): String = {
 
     localCache.getOrElseUpdate(s"${request.getMethod}${request.uri}", {
       // Convert paths of form GET /foo/bar/$paramname<regexp>/blah to foo.bar.paramname.blah.get
       val uri = request.uri
-      val p = normalizePattern.replaceAllIn(uri, "$1").replace('/', '.').dropWhile(_ == '.')
+      val p = normalizePattern.replaceAllIn(uri, "/#").replace('/', '.').dropWhile(_ == '.')
       val normalisedPath = {
         if (p.lastOption.exists(_ != '.')) s"$p."
         else p

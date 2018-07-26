@@ -19,7 +19,8 @@ package kamon.servlet.v3
 import com.typesafe.config.ConfigFactory
 import kamon.Kamon
 import kamon.servlet.v3.client.HttpClientSupport
-import kamon.servlet.v3.server.{JettySupport, SyncTestServlet}
+import kamon.servlet.v3.server.Servlets.hardcodedId
+import kamon.servlet.v3.server.{JettySupport, Servlets, SyncTestServlet}
 import kamon.trace.Span
 import kamon.trace.Span.TagValue
 import org.scalatest.concurrent.Eventually
@@ -65,6 +66,25 @@ class ServerInstrumentationSpec extends WordSpec
         spanTags("component") shouldBe KServlet.tags.serverComponent
         spanTags("http.method") shouldBe "GET"
         spanTags("http.url") shouldBe "/sync/tracing/ok"
+        span.tags("http.status_code") shouldBe TagValue.Number(200)
+
+        span.context.parentID.string shouldBe ""
+      }
+    }
+    "propagate the current context and respond to the ok action removing variable numbers from operation name" in {
+
+      get(s"/sync/tracing/ok/$hardcodedId").getStatusLine.getStatusCode shouldBe 200
+
+      eventually(timeout(3 seconds)) {
+
+        val span = reporter.nextSpan().value
+        val spanTags = stringTag(span) _
+
+        span.operationName shouldBe "sync.tracing.ok.#.get"
+        spanTags("span.kind") shouldBe "server"
+        spanTags("component") shouldBe KServlet.tags.serverComponent
+        spanTags("http.method") shouldBe "GET"
+        spanTags("http.url") shouldBe s"/sync/tracing/ok/$hardcodedId"
         span.tags("http.status_code") shouldBe TagValue.Number(200)
 
         span.context.parentID.string shouldBe ""

@@ -21,6 +21,7 @@ import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 object Servlets {
 
   val defaultDuration: Long = 100 // millis
+  val hardcodedId = 10
 
   def withDelay[A](timeInMillis: Long)(thunk: => A): A = {
     if (timeInMillis > 0) Thread.sleep(timeInMillis)
@@ -39,20 +40,19 @@ case class AsyncTestServlet(defaultDuration: Long = Servlets.defaultDuration)
   override def doGet(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
     val asyncContext = req.startAsync(req, resp)
 
-    asyncContext.start(new Runnable {
-      override def run(): Unit = {
-        asyncContext.getRequest.asInstanceOf[HttpServletRequest].getRequestURI match {
-          case "/async/tracing/not-found" ⇒ withDelay(durationNotFound) { resp.setStatus(404) }
-          case "/async/tracing/error"     ⇒ withDelay(durationError) { resp.setStatus(500) }
-          case "/async/tracing/exception" ⇒ throw new RuntimeException("Blowing up from internal servlet")
-          case "/async/tracing/ok"        ⇒ withDelay(durationOk) { resp.setStatus(200) }
-          case "/async/tracing/slowly"    ⇒ withDelay(durationSlowly) { resp.setStatus(200) }
-          case other                      ⇒
-            resp.getOutputStream.println(s"Something wrong on the test. Endpoint unmapped: $other")
-            resp.setStatus(404)
-        }
-        asyncContext.complete()
+    asyncContext.start(() => {
+      asyncContext.getRequest.asInstanceOf[HttpServletRequest].getRequestURI match {
+        case "/async/tracing/not-found" ⇒ withDelay(durationNotFound) { resp.setStatus(404) }
+        case "/async/tracing/error"     ⇒ withDelay(durationError) { resp.setStatus(500) }
+        case "/async/tracing/exception" ⇒ throw new RuntimeException("Blowing up from internal servlet")
+        case "/async/tracing/ok"        ⇒ withDelay(durationOk) { resp.setStatus(200) }
+        case path if path == s"/async/tracing/ok/$hardcodedId" ⇒ withDelay(durationOk) { resp.setStatus(200) }
+        case "/async/tracing/slowly"    ⇒ withDelay(durationSlowly) { resp.setStatus(200) }
+        case other                      ⇒
+          resp.getOutputStream.println(s"Something wrong on the test. Endpoint unmapped: $other")
+          resp.setStatus(404)
       }
+      asyncContext.complete()
     })
   }
 }
@@ -65,6 +65,8 @@ case class SyncTestServlet(defaultDelay: Long = 1000) extends HttpServlet {
     case "/sync/tracing/error"     ⇒ resp.setStatus(500)
     case "/sync/tracing/exception" ⇒ throw new RuntimeException("Blowing up from internal servlet")
     case "/sync/tracing/ok"        ⇒ resp.setStatus(200)
+    case "/sync/tracing/ok/10"        ⇒ resp.setStatus(200)
+    case path if path == s"/sync/tracing/ok/$hardcodedId" ⇒ resp.setStatus(200)
     case "/sync/tracing/slowly"    ⇒ withDelay(defaultDelay) { resp.setStatus(200) }
     case other                     ⇒
       resp.getOutputStream.println(s"Something wrong on the test. Endpoint unmapped: $other")
