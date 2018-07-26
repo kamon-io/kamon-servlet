@@ -20,7 +20,7 @@ import com.typesafe.config.ConfigFactory
 import kamon.Kamon
 import kamon.servlet.v3.client.HttpClientSupport
 import kamon.servlet.v3.server.Servlets.hardcodedId
-import kamon.servlet.v3.server.{JettySupport, Servlets, SyncTestServlet}
+import kamon.servlet.v3.server.{JettySupport, SyncTestServlet}
 import kamon.trace.Span
 import kamon.trace.Span.TagValue
 import org.scalatest.concurrent.Eventually
