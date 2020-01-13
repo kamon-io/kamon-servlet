@@ -51,6 +51,10 @@ class JettyServer(socketAddress: InetSocketAddress = new InetSocketAddress(0)) {
     this
   }
 
+  def host: String = {
+    server.getConnectors()(0).getHost
+  }
+
   def selectedPort: Int = {
     server.getConnectors()(0).getLocalPort
   }
@@ -69,6 +73,8 @@ trait JettySupport {
   def stopServer(): Unit = {
     jetty.foreach(_.stop())
   }
+
+  def host: String = jetty.get.host
 
   def port: Int = jetty.get.selectedPort
 }

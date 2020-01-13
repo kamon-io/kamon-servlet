@@ -18,9 +18,7 @@ package kamon.servlet.v3
 
 import java.util.concurrent.Executors
 
-import com.typesafe.config.ConfigFactory
 import javax.servlet.http.HttpServlet
-import kamon.Kamon
 import kamon.instrumentation.http.HttpServerMetrics
 import kamon.servlet.Servlet
 import kamon.servlet.v3.client.HttpClientSupport
@@ -52,7 +50,7 @@ class AsyncHttpMetricsSpec extends WordSpec
       s"""
          |kamon {
          |  metric.tick-interval = 10 millis
-         |  servlet.server.interface = "0.0.0.0"
+         |  servlet.server.interface = "$host"
          |  servlet.server.port = $port
          |}
          |
@@ -66,7 +64,7 @@ class AsyncHttpMetricsSpec extends WordSpec
 
   private val parallelRequestExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(15))
 
-  private val serverInstruments = HttpServerMetrics.of(Servlet.tags.serverComponent, Servlet.server.interface, Servlet.server.port)
+  def serverInstruments(): HttpServerMetrics.HttpServerInstruments = HttpServerMetrics.of(Servlet.tags.serverComponent, Servlet.server.interface, Servlet.server.port)
 
   "The Http Metrics generation on Async Servlet 3.x.x" should {
     "track the total of active requests" in {
@@ -76,29 +74,29 @@ class AsyncHttpMetricsSpec extends WordSpec
         }(parallelRequestExecutor)
       }
 
-      eventually(timeout(3 seconds)) {
-        serverInstruments.activeRequests.distribution().max should (be > 0L and be <= 10L)
+      eventually(timeout(5 seconds)) {
+        serverInstruments().activeRequests.distribution().max should (be > 0L and be <= 10L)
       }
 
-      eventually(timeout(3 seconds)) {
-        serverInstruments.activeRequests.distribution().min should (be > 0L and be <= 10L)
+      eventually(timeout(5 seconds)) {
+        serverInstruments().activeRequests.distribution().min should (be > 0L and be <= 10L)
       }
       testSpanReporter().clear()
     }
 
-    //    "track the response time with status code 2xx" in {
-    //      for(_ <- 1 to 100) yield get("/async/tracing/ok")
-    //      ResponseTimeMetrics().forStatusCode("2xx").distribution().max should be >= 10000000L // 10 ms expressed in nanos
-    //    }
-    //
-    //    "track the response time with status code 4xx" in {
-    //      for(_ <- 1 to 100) yield get("/async/tracing/not-found")
-    //      ResponseTimeMetrics().forStatusCode("4xx").distribution().max should be >= 10000000L
-    //    }
-    //
-    //    "track the response time with status code 5xx" in {
-    //      for(_ <- 1 to 100) yield get("/async/tracing/error")
-    //      ResponseTimeMetrics().forStatusCode("5xx").distribution().max should be >= 10000000L
-    //    }
+    "track the number of responses with status code 2xx" in {
+      for (_ <- 1 to 100) yield get("/async/tracing/ok")
+      serverInstruments().requestsInformational.value(resetState = false) should be > 0L
+    }
+
+    "track the number of responses with status code 4xx" in {
+      for (_ <- 1 to 100) yield get("/async/tracing/not-found")
+      serverInstruments().requestsClientError.value(resetState = false) should be > 0L
+    }
+
+    "track the number of responses with status code 5xx" in {
+      for (_ <- 1 to 100) yield get("/async/tracing/error")
+      serverInstruments().requestsServerError.value(resetState = false) should be > 0L
+    }
   }
 }

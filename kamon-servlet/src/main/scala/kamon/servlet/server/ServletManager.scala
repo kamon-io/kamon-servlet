@@ -22,15 +22,11 @@ import kamon.servlet.utils.RequestContinuation
 import scala.util.Try
 
 
-trait RequestServlet extends HttpMessage.Request {
+trait RequestServlet extends HttpMessage.Request
 
-//  def getMethod: String
-//  def uri: String
-//  def url: String
-//  def headers: Map[String, String]
+trait ResponseServlet extends HttpMessage.Response {
+  def write(header: String, value: String): Unit
 }
-
-trait ResponseServlet extends HttpMessage.Response
 
 trait FilterDelegation[Request  <: RequestServlet, Response <: ResponseServlet, Continuation <: RequestContinuation[Request, Response]] {
 

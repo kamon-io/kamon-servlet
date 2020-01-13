@@ -28,6 +28,8 @@ class ResponseServletV25(val underlineResponse: HttpServletResponse) extends Res
   override def statusCode: Int = {
     StatusResponseExtractor.status(underlineResponse).getOrElse(ResponseServletV25.defaultStatus)
   }
+
+  override def write(header: String, value: String): Unit = underlineResponse.addHeader(header, value)
 }
 
 object ResponseServletV25 {

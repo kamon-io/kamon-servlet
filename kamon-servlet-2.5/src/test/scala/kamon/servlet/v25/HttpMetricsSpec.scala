@@ -18,8 +18,6 @@ package kamon.servlet.v25
 
 import java.util.concurrent.Executors
 
-import com.typesafe.config.ConfigFactory
-import kamon.Kamon
 import kamon.instrumentation.http.HttpServerMetrics
 import kamon.servlet.Servlet
 import kamon.servlet.v25.client.HttpClientSupport
@@ -49,12 +47,12 @@ class HttpMetricsSpec extends WordSpec
     startServer()
     applyConfig(
       s"""
-        |kamon {
-        |  metric.tick-interval = 10 millis
-        |  servlet.server.interface = "0.0.0.0"
-        |  servlet.server.port = $port
-        |}
-        |
+         |kamon {
+         |  metric.tick-interval = 10 millis
+         |  servlet.server.interface = "$host"
+         |  servlet.server.port = $port
+         |}
+         |
     """.stripMargin
     )
   }
@@ -65,7 +63,7 @@ class HttpMetricsSpec extends WordSpec
 
   private val parallelRequestExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(15))
 
-  private val serverInstruments = HttpServerMetrics.of(Servlet.tags.serverComponent, Servlet.server.interface, Servlet.server.port)
+  def serverInstruments(): HttpServerMetrics.HttpServerInstruments = HttpServerMetrics.of(Servlet.tags.serverComponent, Servlet.server.interface, Servlet.server.port)
 
   "The Http Metrics generation on Servlet 2.5" should {
     "track the total of active requests" in {
@@ -75,29 +73,29 @@ class HttpMetricsSpec extends WordSpec
         }(parallelRequestExecutor)
       }
 
-      eventually(timeout(3 seconds)) {
-        serverInstruments.activeRequests.distribution().max should (be > 0L and be <= 10L)
+      eventually(timeout(5 seconds)) {
+        serverInstruments().activeRequests.distribution().max should (be > 0L and be <= 10L)
       }
 
-      eventually(timeout(3 seconds)) {
-        serverInstruments.activeRequests.distribution().min should (be > 0L and be <= 10L)
+      eventually(timeout(5 seconds)) {
+        serverInstruments().activeRequests.distribution().min should (be > 0L and be <= 10L)
       }
       testSpanReporter().clear()
     }
 
-    //    "track the response time with status code 2xx" in {
-    //      for(_ <- 1 to 100) yield get("/sync/tracing/ok")
-    //      serverInstruments.forStatusCode("2xx").distribution().max should be > 0L
-    //    }
-    //
-    //    "track the response time with status code 4xx" in {
-    //      for(_ <- 1 to 100) yield get("/sync/tracing/not-found")
-    //      ResponseTimeMetrics().forStatusCode("4xx").distribution().max should be > 0L
-    //    }
-    //
-    //    "track the response time with status code 5xx" in {
-    //      for(_ <- 1 to 100) yield get("/sync/tracing/error")
-    //      ResponseTimeMetrics().forStatusCode("5xx").distribution().max should be > 0L
-    //    }
+    "track the number of responses with status code 2xx" in {
+      for (_ <- 1 to 100) yield get("/sync/tracing/ok")
+      serverInstruments().requestsInformational.value(resetState = false) should be > 0L
+    }
+
+    "track the number of responses with status code 4xx" in {
+      for (_ <- 1 to 100) yield get("/sync/tracing/not-found")
+      serverInstruments().requestsClientError.value(resetState = false) should be > 0L
+    }
+
+    "track the number of responses with status code 5xx" in {
+      for (_ <- 1 to 100) yield get("/sync/tracing/error")
+      serverInstruments().requestsServerError.value(resetState = false) should be > 0L
+    }
   }
 }

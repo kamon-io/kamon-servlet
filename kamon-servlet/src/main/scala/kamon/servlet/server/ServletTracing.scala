@@ -20,11 +20,13 @@ import java.time.Instant
 
 import kamon.Kamon
 import kamon.context.Context
-import kamon.instrumentation.http.HttpServerInstrumentation
+import kamon.instrumentation.http.{HttpMessage, HttpServerInstrumentation}
 import kamon.instrumentation.http.HttpServerInstrumentation.RequestHandler
 import kamon.servlet.Continuation
 import kamon.servlet.utils.RequestContinuation
 import kamon.trace.Span
+
+import scala.collection.mutable
 
 case class ServletTracing(instrumentation: HttpServerInstrumentation) {
 
@@ -95,11 +97,13 @@ case class TracingContinuation(scope: Context, requestHandler: RequestHandler,
   def onSuccess(request: Request, response: Response)(end: Instant): Unit = {
     always(response, end)
     finishSpan(serverSpan, end)
+    requestHandler.buildResponse(toResponseBuilder(response), requestHandler.context)
   }
 
   def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit = {
     always(response, end)
     finishSpanWithError(serverSpan, end, error)
+    requestHandler.buildResponse(toResponseBuilder(response), requestHandler.context)
   }
 
   private def always(response: Response, end: Instant): Unit = {
@@ -122,7 +126,19 @@ case class TracingContinuation(scope: Context, requestHandler: RequestHandler,
       case None => serverSpan.fail(errorMessage)
     }
     finishSpan(serverSpan, endTimestamp)
-    requestHandler.responseSent()
+  }
+
+  private def toResponseBuilder(response: Response): HttpMessage.ResponseBuilder[Response] = new HttpMessage.ResponseBuilder[Response] {
+    private var _headers = mutable.Map.empty[String, String]
+
+    override def statusCode: Int = response.statusCode
+
+    override def write(header: String, value: String): Unit = _headers += (header -> value)
+
+    override def build(): Response = {
+      _headers foreach { case (header, value) => response.write(header, value) }
+      response
+    }
   }
 }
 

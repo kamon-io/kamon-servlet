@@ -21,7 +21,10 @@ import javax.servlet.http.HttpServletResponse
 import kamon.servlet.server.ResponseServlet
 
 class ResponseServletV3(val underlineResponse: HttpServletResponse) extends ResponseServlet {
+
   override def statusCode: Int = underlineResponse.getStatus
+
+  override def write(header: String, value: String): Unit = underlineResponse.addHeader(header, value)
 }
 
 object ResponseServletV3 {
