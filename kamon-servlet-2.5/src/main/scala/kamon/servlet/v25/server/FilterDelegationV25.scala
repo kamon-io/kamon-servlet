@@ -36,7 +36,7 @@ class FilterDelegationV25(val underlineChain: FilterChain)
   }
 
   protected def handle(request: RequestServletV25, response: ResponseServletV25)
-                    (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
+                      (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
     result
       .map { value =>
         continuation.onSuccess(request, response)(Kamon.clock().instant())
@@ -62,6 +62,7 @@ case class ResponseProcessingContinuation(continuations: RequestContinuation[Req
   type Response = ResponseServletV25
 
   override def onSuccess(request: Request, response: Response)(end: Instant): Unit = continuations.foreach(_.onSuccess(request, response)(end))
+
   override def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit = {
     val resp = KamonFilterV25Config.errorResponseHandler.withRightStatus(response)
     continuations.foreach(_.onError(request, resp)(end, error))

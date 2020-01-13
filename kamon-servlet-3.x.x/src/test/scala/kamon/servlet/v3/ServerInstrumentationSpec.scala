@@ -21,11 +21,11 @@ import kamon.Kamon
 import kamon.servlet.v3.client.HttpClientSupport
 import kamon.servlet.v3.server.Servlets.hardcodedId
 import kamon.servlet.v3.server.{JettySupport, SyncTestServlet}
-import kamon.trace.Span
-import kamon.trace.Span.TagValue
+import kamon.servlet.{Servlet => KServlet}
+import kamon.tag.Lookups.{plain, plainLong}
+import kamon.testkit.TestSpanReporter
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
-import kamon.servlet.{Servlet => KServlet}
 
 import scala.concurrent.duration._
 
@@ -34,20 +34,29 @@ class ServerInstrumentationSpec extends WordSpec
   with BeforeAndAfterAll
   with Eventually
   with OptionValues
-  with SpanReporter
+  with TestSpanReporter
   with JettySupport
   with HttpClientSupport {
 
   override val servlet = SyncTestServlet()
 
   override protected def beforeAll(): Unit = {
-    Kamon.reconfigure(ConfigFactory.load())
     startServer()
-    startRegistration()
+    applyConfig(
+      s"""
+         |kamon {
+         |  metric.tick-interval = 10 millis
+         |  trace.tick-interval = 10 millis
+         |  trace.sampler = "always"
+         |  servlet.server.interface = "0.0.0.0"
+         |  servlet.server.port = $port
+         |}
+         |
+    """.stripMargin
+    )
   }
 
   override protected def afterAll(): Unit = {
-    stopRegistration()
     stopServer()
   }
 
@@ -58,17 +67,16 @@ class ServerInstrumentationSpec extends WordSpec
 
       eventually(timeout(3 seconds)) {
 
-        val span = reporter.nextSpan().value
-        val spanTags = stringTag(span) _
+        val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "sync.tracing.ok.get"
-        spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe KServlet.tags.serverComponent
-        spanTags("http.method") shouldBe "GET"
-        spanTags("http.url") shouldBe "/sync/tracing/ok"
-        span.tags("http.status_code") shouldBe TagValue.Number(200)
+        span.kind shouldBe "server"
+        span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
+        span.metricTags.get(plain("http.method")) shouldBe "GET"
+        span.tags.get(plain("http.url")) should endWith ("/sync/tracing/ok")
+        span.metricTags.get(plainLong("http.status_code")) shouldBe 200
 
-        span.context.parentID.string shouldBe ""
+        span.parentId.string shouldBe ""
       }
     }
     "propagate the current context and respond to the ok action removing variable numbers from operation name" in {
@@ -77,17 +85,16 @@ class ServerInstrumentationSpec extends WordSpec
 
       eventually(timeout(3 seconds)) {
 
-        val span = reporter.nextSpan().value
-        val spanTags = stringTag(span) _
+        val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "sync.tracing.ok.#.get"
-        spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe KServlet.tags.serverComponent
-        spanTags("http.method") shouldBe "GET"
-        spanTags("http.url") shouldBe s"/sync/tracing/ok/$hardcodedId"
-        span.tags("http.status_code") shouldBe TagValue.Number(200)
+        span.kind shouldBe "server"
+        span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
+        span.metricTags.get(plain("http.method")) shouldBe "GET"
+        span.tags.get(plain("http.url")) should endWith (s"/sync/tracing/ok/$hardcodedId")
+        span.metricTags.get(plainLong("http.status_code")) shouldBe 200
 
-        span.context.parentID.string shouldBe ""
+        span.parentId.string shouldBe ""
       }
     }
 
@@ -96,17 +103,16 @@ class ServerInstrumentationSpec extends WordSpec
       get("/sync/tracing/not-found").getStatusLine.getStatusCode shouldBe 404
 
       eventually(timeout(3 seconds)) {
-        val span = reporter.nextSpan().value
-        val spanTags = stringTag(span) _
+        val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "not-found"
-        spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe KServlet.tags.serverComponent
-        spanTags("http.method") shouldBe "GET"
-        spanTags("http.url") shouldBe "/sync/tracing/not-found"
-        span.tags("http.status_code") shouldBe TagValue.Number(404)
+        span.kind shouldBe "server"
+        span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
+        span.metricTags.get(plain("http.method")) shouldBe "GET"
+        span.tags.get(plain("http.url")) should endWith ("/sync/tracing/not-found")
+        span.metricTags.get(plainLong("http.status_code")) shouldBe 404
 
-        span.context.parentID.string shouldBe ""
+        span.parentId.string shouldBe ""
       }
     }
 
@@ -114,18 +120,17 @@ class ServerInstrumentationSpec extends WordSpec
       get("/sync/tracing/error").getStatusLine.getStatusCode shouldBe 500
 
       eventually(timeout(3 seconds)) {
-        val span = reporter.nextSpan().value
-        val spanTags = stringTag(span) _
+        val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "sync.tracing.error.get"
-        spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe KServlet.tags.serverComponent
-        spanTags("http.method") shouldBe "GET"
-        spanTags("http.url") shouldBe "/sync/tracing/error"
-        span.tags("error") shouldBe TagValue.True
-        span.tags("http.status_code") shouldBe TagValue.Number(500)
+        span.kind shouldBe "server"
+        span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
+        span.metricTags.get(plain("http.method")) shouldBe "GET"
+        span.tags.get(plain("http.url")) should endWith ("/sync/tracing/error")
+        span.hasError shouldBe true
+        span.metricTags.get(plainLong("http.status_code")) shouldBe 500
 
-        span.context.parentID.string shouldBe ""
+        span.parentId.string shouldBe ""
       }
     }
 
@@ -133,19 +138,19 @@ class ServerInstrumentationSpec extends WordSpec
       get("/sync/tracing/exception").getStatusLine.getStatusCode shouldBe 200
 
       eventually(timeout(3 seconds)) {
-        val span = reporter.nextSpan().value
-        val spanTags = stringTag(span) _
+        val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "sync.tracing.exception.get"
-        spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe KServlet.tags.serverComponent
-        spanTags("http.method") shouldBe "GET"
-        spanTags("http.url") shouldBe "/sync/tracing/exception"
-        span.tags("error") shouldBe TagValue.True
-        spanTags("error.object") shouldBe "Blowing up from internal servlet"
-        span.tags("http.status_code") shouldBe TagValue.Number(500)
+        span.kind shouldBe "server"
+        span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
+        span.metricTags.get(plain("http.method")) shouldBe "GET"
+        span.tags.get(plain("http.url")) should endWith ("/sync/tracing/exception")
+        span.hasError shouldBe true
+        // FIXME
+        //        spanTags("error.object") shouldBe "Blowing up from internal servlet"
+        span.metricTags.get(plainLong("http.status_code")) shouldBe 500
 
-        span.context.parentID.string shouldBe ""
+        span.parentId.string shouldBe ""
       }
     }
 
@@ -154,28 +159,24 @@ class ServerInstrumentationSpec extends WordSpec
 
       eventually(timeout(3 seconds)) {
 
-        val span = reporter.nextSpan().value
-        val spanTags = stringTag(span) _
+        val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "sync.tracing.ok.get"
-        spanTags("span.kind") shouldBe "server"
-        spanTags("component") shouldBe KServlet.tags.serverComponent
-        spanTags("http.method") shouldBe "GET"
-        spanTags("http.url") shouldBe "/sync/tracing/ok"
-        span.tags("http.status_code") shouldBe TagValue.Number(200)
+        span.kind shouldBe "server"
+        span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
+        span.metricTags.get(plain("http.method")) shouldBe "GET"
+        span.tags.get(plain("http.url")) should endWith ("/sync/tracing/ok")
+        span.metricTags.get(plainLong("http.status_code")) shouldBe 200
 
-        span.context.parentID.string shouldBe IncomingContext.SpanId
-        span.context.traceID.string shouldBe IncomingContext.TraceId
+        span.parentId.string shouldBe IncomingContext.SpanId
+        span.trace.id.string shouldBe IncomingContext.TraceId
       }
     }
   }
 
-  def stringTag(span: Span.FinishedSpan)(tag: String): String = {
-    span.tags(tag).asInstanceOf[TagValue.String].string
-  }
-
   object IncomingContext {
-    import kamon.trace.SpanCodec.B3.{Headers => B3Headers}
+
+    import kamon.trace.SpanPropagation.B3.{Headers => B3Headers}
 
     val TraceId = "1234"
     val ParentSpanId = "2222"

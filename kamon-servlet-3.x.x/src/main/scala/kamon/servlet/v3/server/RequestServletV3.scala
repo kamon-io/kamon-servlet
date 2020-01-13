@@ -19,26 +19,30 @@ package kamon.servlet.v3.server
 import javax.servlet.ServletRequest
 import javax.servlet.http.HttpServletRequest
 import kamon.servlet.server.RequestServlet
+import kamon.servlet.utils.MapUtils
 
 import scala.collection.immutable.TreeMap
 
-case class RequestServletV3(underlineRequest: HttpServletRequest) extends RequestServlet {
+case class RequestServletV3(underlineRequest: HttpServletRequest,
+                            override val host: String,
+                            override val port: Int) extends RequestServlet {
+
   import RequestServletV3._
 
-  override def getMethod: String = underlineRequest.getMethod
+//  override def getMethod: String = underlineRequest.getMethod
+//
+//  override def uri: String = underlineRequest.getRequestURI
+//
+//  override def url: String = underlineRequest.getRequestURL.toString
 
-  override def uri: String = underlineRequest.getRequestURI
-
-  override def url: String = underlineRequest.getRequestURL.toString
-
-  override lazy val headers: Map[String, String] = {
+  lazy val headers: Map[String, String] = {
     val headersIterator = underlineRequest.getHeaderNames
     val headers = Map.newBuilder[String, String]
     while (headersIterator.hasMoreElements) {
       val name = headersIterator.nextElement()
       headers += (name -> underlineRequest.getHeader(name))
     }
-    headersMapPrototype ++ headers.result()
+    MapUtils.caseInsensitiveMap(headers.result())
   }
 
   def isAsync: Boolean = underlineRequest.isAsyncStarted
@@ -46,18 +50,25 @@ case class RequestServletV3(underlineRequest: HttpServletRequest) extends Reques
   def addListener(listener: KamonAsyncListener): Unit = {
     underlineRequest.getAsyncContext.addListener(listener)
   }
+
+  override def url: String = underlineRequest.getRequestURL.toString
+
+  override def path: String = underlineRequest.getRequestURI
+
+  override def method: String = underlineRequest.getMethod
+
+  override def read(header: String): Option[String] = headers.get(header)
+
+  override def readAll(): Map[String, String] = headers
 }
 
 object RequestServletV3 {
 
-  val headersMapPrototype: TreeMap[String, String] = {
-    val insensitiveCaseOrdering = new Ordering[String] {
-      override def compare(x: String, y: String): Int = x.compareToIgnoreCase(y)
-    }
-    new TreeMap()(insensitiveCaseOrdering)
-  }
+//  val headersMapPrototype: TreeMap[String, String] = {
+//    new TreeMap()(Ordering.comparatorToOrdering(String.CASE_INSENSITIVE_ORDER))
+//  }
 
-  def apply(request: ServletRequest): RequestServletV3 = {
-    new RequestServletV3(request.asInstanceOf[HttpServletRequest])
+  def apply(request: ServletRequest, interface: String, port: Int): RequestServletV3 = {
+    new RequestServletV3(request.asInstanceOf[HttpServletRequest], interface, port)
   }
 }

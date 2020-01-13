@@ -16,23 +16,21 @@
 
 package kamon.servlet.server
 
+import kamon.instrumentation.http.HttpMessage
 import kamon.servlet.utils.RequestContinuation
 
 import scala.util.Try
 
 
-trait RequestServlet {
+trait RequestServlet extends HttpMessage.Request {
 
-  def getMethod: String
-  def uri: String
-  def url: String
-  def headers: Map[String, String]
+//  def getMethod: String
+//  def uri: String
+//  def url: String
+//  def headers: Map[String, String]
 }
 
-trait ResponseServlet {
-
-  def status: Int
-}
+trait ResponseServlet extends HttpMessage.Response
 
 trait FilterDelegation[Request  <: RequestServlet, Response <: ResponseServlet, Continuation <: RequestContinuation[Request, Response]] {
 
@@ -40,3 +38,11 @@ trait FilterDelegation[Request  <: RequestServlet, Response <: ResponseServlet, 
 
   def joinContinuations(continuations: RequestContinuation[Request, Response]*): Continuation
 }
+
+//trait FilterDelegation2[Request  <: HttpMessage.Request, Response <: HttpMessage.Response] {
+//  def chain(request: Request, response: Response): Try[Unit]
+//}
+
+//trait RequestContinuation[Request  <: HttpMessage.Request, Response <: HttpMessage.Response] {
+//  def chain(req: Request, res: Response): Try[Unit]
+//}

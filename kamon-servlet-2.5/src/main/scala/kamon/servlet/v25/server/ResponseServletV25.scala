@@ -24,7 +24,8 @@ import javax.servlet.http.{HttpServletResponse, HttpServletResponseWrapper}
 import kamon.servlet.server.ResponseServlet
 
 class ResponseServletV25(val underlineResponse: HttpServletResponse) extends ResponseServlet {
-  override def status: Int = {
+
+  override def statusCode: Int = {
     StatusResponseExtractor.status(underlineResponse).getOrElse(ResponseServletV25.defaultStatus)
   }
 }
@@ -37,7 +38,6 @@ object ResponseServletV25 {
   def apply(response: ServletResponse): ResponseServletV25 = {
     new ResponseServletV25(ResponseWithStatusV25(response))
   }
-
 
 
 }
@@ -54,7 +54,7 @@ object StatusResponseExtractor {
   def status(response: HttpServletResponse): Option[Int] = {
     response match {
       case adapter: ResponseWithStatusV25 => Option(adapter.getStatus)
-      case _                              => tryToUseGetStatus(response)
+      case _ => tryToUseGetStatus(response)
     }
   }
 

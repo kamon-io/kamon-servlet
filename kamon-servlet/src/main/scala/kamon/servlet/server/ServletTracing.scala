@@ -17,15 +17,16 @@
 package kamon.servlet.server
 
 import java.time.Instant
-import java.util.Locale
 
 import kamon.Kamon
-import kamon.context.{Context, Storage, TextMap}
+import kamon.context.Context
+import kamon.instrumentation.http.HttpServerInstrumentation
+import kamon.instrumentation.http.HttpServerInstrumentation.RequestHandler
 import kamon.servlet.Continuation
 import kamon.servlet.utils.RequestContinuation
 import kamon.trace.Span
 
-object ServletTracing {
+case class ServletTracing(instrumentation: HttpServerInstrumentation) {
 
   /**
     * Create a new Span for representing the incoming request and propagate the Kamon context by joining
@@ -37,53 +38,58 @@ object ServletTracing {
     *
     * <p>{@link TracingContinuation} object has the callbacks for success or fail response processing.
     *
-    * @param request: Request
-    * @param response: Response
-    * @param continuation: continuation function where it will be passed the final trace processing
-    * @tparam Hole: Value Type to be used to manage tracing on the resulted response
-    * @tparam Result: Final Result Type produce after computation of continuation provided
+    * @param request      : Request
+    * @param response     : Response
+    * @param continuation : continuation function where it will be passed the final trace processing
+    * @tparam Hole   : Value Type to be used to manage tracing on the resulted response
+    * @tparam Result : Final Result Type produce after computation of continuation provided
     * @return
     */
   def withTracing[Hole <: TracingContinuation, Result](request: RequestServlet, response: ResponseServlet)
                                                       (continuation: Continuation[TracingContinuation, Result]): Result = {
 
-    val incomingContext = decodeContext(request)
-    val serverSpan = createSpan(incomingContext, request)
-    Kamon.withContext(incomingContext.withKey(Span.ContextKey, serverSpan)) {
-      continuation(TracingContinuation(Kamon.currentContext(), serverSpan))
+    //    val incomingContext = decodeContext(request)
+    //    val serverSpan = createSpan(incomingContext, request)
+    val requestHandler: RequestHandler = instrumentation.createHandler(request)
+    requestHandler.requestReceived()
+    Kamon.runWithContext(requestHandler.context /* incomingContext.withKey(Span.ContextKey, serverSpan)*/) {
+      continuation(TracingContinuation(Kamon.currentContext(), requestHandler, instrumentation.settings))
     }
   }
 
-  private def createSpan(incomingContext: Context, request: RequestServlet): Span = {
-    val operationName = kamon.servlet.Servlet.generateOperationName(request)
-    Kamon.buildSpan(operationName)
-      .asChildOf(incomingContext.get(Span.ContextKey))
-      .withMetricTag("span.kind", "server")
-      .withMetricTag("component", kamon.servlet.Servlet.tags.serverComponent)
-      .withTag("http.method", request.getMethod.toUpperCase(Locale.ENGLISH))
-      .withTag("http.url", request.uri)
-      .start()
-  }
-
-
-  private def decodeContext(request: RequestServlet): Context = {
-    val headersTextMap = readOnlyTextMapFromHeaders(request)
-    Kamon.contextCodec().HttpHeaders.decode(headersTextMap)
-  }
-
-  private def readOnlyTextMapFromHeaders(request: RequestServlet): TextMap = new TextMap {
-    override def values: Iterator[(String, String)] = request.headers.iterator
-    override def get(key: String): Option[String] = request.headers.get(key)
-    override def put(key: String, value: String): Unit = {}
-  }
+  //  private def createSpan(incomingContext: Context, request: RequestServlet): Span = {
+  //    val operationName = kamon.servlet.Servlet.generateOperationName(request)
+  //    Kamon.buildSpan(operationName)
+  //      .asChildOf(incomingContext.get(Span.ContextKey))
+  //      .withMetricTag("span.kind", "server")
+  //      .withMetricTag("component", kamon.servlet.Servlet.tags.serverComponent)
+  //      .withTag("http.method", request.getMethod.toUpperCase(Locale.ENGLISH))
+  //      .withTag("http.url", request.uri)
+  //      .start()
+  //  }
+  //
+  //
+  //  private def decodeContext(request: RequestServlet): Context = {
+  //    val headersTextMap = readOnlyTextMapFromHeaders(request)
+  //    Kamon.contextCodec().HttpHeaders.decode(headersTextMap)
+  //  }
+  //
+  //  private def readOnlyTextMapFromHeaders(request: RequestServlet): TextMap = new TextMap {
+  //    override def values: Iterator[(String, String)] = request.headers.iterator
+  //    override def get(key: String): Option[String] = request.headers.get(key)
+  //    override def put(key: String, value: String): Unit = {}
+  //  }
 }
 
-case class TracingContinuation(scope: Context, serverSpan: Span) extends RequestContinuation[RequestServlet, ResponseServlet] {
+case class TracingContinuation(scope: Context, requestHandler: RequestHandler,
+                               settings: HttpServerInstrumentation.Settings) extends RequestContinuation[RequestServlet, ResponseServlet] {
 
   import TracingContinuation._
 
   type Request = RequestServlet
   type Response = ResponseServlet
+
+  val serverSpan: Span = requestHandler.span
 
   def onSuccess(request: Request, response: Response)(end: Instant): Unit = {
     always(response, end)
@@ -96,13 +102,14 @@ case class TracingContinuation(scope: Context, serverSpan: Span) extends Request
   }
 
   private def always(response: Response, end: Instant): Unit = {
-    handleStatusCode(serverSpan, response.status)
-    serverSpan.tag("http.status_code", response.status)
+    requestHandler.responseSent()
+    handleStatusCode(serverSpan, response.statusCode)
+    serverSpan.tag("http.status_code", response.statusCode)
   }
 
   private def handleStatusCode(span: Span, code: Int): Unit =
-    if (code >= 500) span.addError("error")
-    else if (code == 404) span.setOperationName("not-found")
+    if (code >= 500) span.fail("error")
+    else if (code == 404) span.name(settings.unhandledOperationName)
 
   private def finishSpan(serverSpan: Span, endTimestamp: Instant): Unit = {
     serverSpan.finish(endTimestamp)
@@ -110,8 +117,8 @@ case class TracingContinuation(scope: Context, serverSpan: Span) extends Request
 
   private def finishSpanWithError(serverSpan: Span, endTimestamp: Instant, error: Option[Throwable]): Unit = {
     error match {
-      case Some(e) => serverSpan.addError(errorMessage, e)
-      case None    => serverSpan.addError(errorMessage)
+      case Some(e) => serverSpan.fail(errorMessage, e)
+      case None => serverSpan.fail(errorMessage)
     }
     finishSpan(serverSpan, endTimestamp)
   }

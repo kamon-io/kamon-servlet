@@ -17,6 +17,7 @@
 package kamon.servlet.v3
 
 import javax.servlet._
+import kamon.instrumentation.http.HttpServerInstrumentation
 import kamon.servlet.KamonFilter
 import kamon.servlet.v3.server._
 
@@ -27,10 +28,10 @@ import kamon.servlet.v3.server._
   */
 class KamonFilterV3 extends Filter with KamonFilter with OncePerRequestFilter {
 
-  override type Request           = RequestServletV3
-  override type Response          = ResponseServletV3
+  override type Request = RequestServletV3
+  override type Response = ResponseServletV3
   override type ChainContinuation = ResponseProcessingContinuation
-  override type Chain             = FilterDelegationV3
+  override type Chain = FilterDelegationV3
 
   override def init(filterConfig: FilterConfig): Unit = ()
 
@@ -41,6 +42,9 @@ class KamonFilterV3 extends Filter with KamonFilter with OncePerRequestFilter {
   }
 
   def toFilterDelegation(chain: FilterChain): Chain = FilterDelegationV3(chain)
-  def toRequestAdapter(request: ServletRequest): Request = RequestServletV3(request)
+
+  def toRequestAdapter(request: ServletRequest): Request =
+    RequestServletV3(request, instrumentation.interface(), instrumentation.port())
+
   def toResponseAdapter(response: ServletResponse): Response = ResponseServletV3(response)
 }

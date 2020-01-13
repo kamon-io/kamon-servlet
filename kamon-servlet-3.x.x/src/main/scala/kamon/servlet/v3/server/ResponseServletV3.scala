@@ -21,7 +21,7 @@ import javax.servlet.http.HttpServletResponse
 import kamon.servlet.server.ResponseServlet
 
 class ResponseServletV3(val underlineResponse: HttpServletResponse) extends ResponseServlet {
-  override def status: Int = underlineResponse.getStatus
+  override def statusCode: Int = underlineResponse.getStatus
 }
 
 object ResponseServletV3 {

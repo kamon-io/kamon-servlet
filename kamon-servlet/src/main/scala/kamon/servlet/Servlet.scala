@@ -17,29 +17,38 @@
 package kamon.servlet
 
 import com.typesafe.config.Config
-import kamon.{Kamon, OnReconfigureHook}
+import kamon.Configuration.OnReconfigureHook
+import kamon.Kamon
 import kamon.servlet.server.RequestServlet
 import kamon.util.DynamicAccess
 
 object Servlet {
   @volatile private var nameGenerator: NameGenerator = nameGeneratorFromConfig(Kamon.config())
+  @volatile private var _server: Server = Server(Kamon.config())
   @volatile private var _tags: Tags = Tags(Kamon.config())
 
   def generateOperationName(request: RequestServlet): String = nameGenerator.generateOperationName(request)
+  def server: Server = _server
   def tags: Tags = _tags
 
   private def nameGeneratorFromConfig(config: Config): NameGenerator = {
     val dynamic = new DynamicAccess(getClass.getClassLoader)
     val nameGeneratorFQCN = config.getString("kamon.servlet.name-generator")
-    dynamic.createInstanceFor[NameGenerator](nameGeneratorFQCN, Nil).get
+    dynamic.createInstanceFor[NameGenerator](nameGeneratorFQCN, Nil)
   }
 
   Kamon.onReconfigure(new OnReconfigureHook {
     override def onReconfigure(newConfig: Config): Unit = {
       nameGenerator = nameGeneratorFromConfig(newConfig)
+      _server = Server(newConfig)
       _tags = Tags(newConfig)
     }
   })
+
+  case class Server(config: Config) {
+    val interface: String = config.getString("kamon.servlet.server.interface")
+    val port: Int = config.getInt("kamon.servlet.server.port")
+  }
 
   case class Tags(config: Config) {
     val serverComponent: String = config.getString("kamon.servlet.tags.server-component")
@@ -62,15 +71,15 @@ class DefaultNameGenerator extends NameGenerator {
 
   override def generateOperationName(request: RequestServlet): String = {
 
-    localCache.getOrElseUpdate(s"${request.getMethod}${request.uri}", {
+    localCache.getOrElseUpdate(s"${request.method}${request.url}", {
       // Convert paths of form GET /foo/bar/$paramname<regexp>/blah to foo.bar.paramname.blah.get
-      val uri = request.uri
+      val uri = request.url
       val p = normalizePattern.replaceAllIn(uri, "/#").replace('/', '.').dropWhile(_ == '.')
       val normalisedPath = {
         if (p.lastOption.exists(_ != '.')) s"$p."
         else p
       }
-      s"$normalisedPath${request.getMethod.toLowerCase(Locale.ENGLISH)}"
+      s"$normalisedPath${request.method.toLowerCase(Locale.ENGLISH)}"
     })
   }
 }

@@ -17,8 +17,9 @@ val kamonVersion = "1.1.3"
 val jettyV9Version = "9.4.8.v20171121"
 val jettyV7Version = "7.6.21.v20160908"
 
-val kamonCore         = "io.kamon"                  %% "kamon-core"             % kamonVersion
-val kamonTestkit      = "io.kamon"                  %% "kamon-testkit"          % kamonVersion
+val kamonCore         = "io.kamon"                  %% "kamon-core"                     % "2.0.4"
+val kamonTestkit      = "io.kamon"                  %% "kamon-testkit"                  % "2.0.4"
+val kamonCommon       = "io.kamon"                  %% "kamon-instrumentation-common"   % "2.0.1"
 
 val servletApiV25     = "javax.servlet"             % "servlet-api"             % "2.5"
 val servletApiV3      = "javax.servlet"             %  "javax.servlet-api"      % "3.0.1"
@@ -61,7 +62,7 @@ lazy val kamonServlet = Project("kamon-servlet", file("kamon-servlet"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++=
-      compileScope(kamonCore) ++
+      compileScope(kamonCore, kamonCommon) ++
       testScope(scalatest, kamonTestkit, logbackClassic))
 
 lazy val kamonServlet25 = Project("kamon-servlet-25", file("kamon-servlet-2.5"))
@@ -73,7 +74,7 @@ lazy val kamonServlet25 = Project("kamon-servlet-25", file("kamon-servlet-2.5"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++=
-      compileScope(kamonCore) ++
+      compileScope(kamonCore, kamonCommon) ++
       providedScope(servletApiV25) ++
       testScope(scalatest, kamonTestkit, logbackClassic, jettyServletsV7, jettyServerV7, jettyServletV7, httpClient))
   .dependsOn(kamonServlet)
@@ -87,7 +88,7 @@ lazy val kamonServlet3 = Project("kamon-servlet-3", file("kamon-servlet-3.x.x"))
   .settings(commonSettings: _*)
   .settings(
     libraryDependencies ++=
-      compileScope(kamonCore) ++
+      compileScope(kamonCore, kamonCommon) ++
       providedScope(servletApiV3) ++
       testScope(scalatest, kamonTestkit, logbackClassic, jettyServletsV9, jettyServerV9, jettyServletV9, httpClient))
   .dependsOn(kamonServlet)

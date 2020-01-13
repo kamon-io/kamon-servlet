@@ -2,7 +2,9 @@ package kamon.servlet.v25.server
 
 import javax.servlet.{Filter, FilterChain, ServletRequest, ServletResponse}
 
-trait OncePerRequestFilter { self: Filter =>
+trait OncePerRequestFilter {
+  self: Filter =>
+
   import OncePerRequestFilter._
 
   override def doFilter(request: ServletRequest, response: ServletResponse, filterChain: FilterChain): Unit = {
