@@ -51,6 +51,7 @@ case class ServletTracing(instrumentation: HttpServerInstrumentation) {
     //    val incomingContext = decodeContext(request)
     //    val serverSpan = createSpan(incomingContext, request)
     val requestHandler: RequestHandler = instrumentation.createHandler(request)
+    requestHandler.span.name(kamon.servlet.Servlet.generateOperationName(request))
     requestHandler.requestReceived()
     Kamon.runWithContext(requestHandler.context /* incomingContext.withKey(Span.ContextKey, serverSpan)*/) {
       continuation(TracingContinuation(Kamon.currentContext(), requestHandler, instrumentation.settings))
@@ -102,9 +103,8 @@ case class TracingContinuation(scope: Context, requestHandler: RequestHandler,
   }
 
   private def always(response: Response, end: Instant): Unit = {
-    requestHandler.responseSent()
+    serverSpan.tagMetrics("http.status_code", response.statusCode)
     handleStatusCode(serverSpan, response.statusCode)
-    serverSpan.tag("http.status_code", response.statusCode)
   }
 
   private def handleStatusCode(span: Span, code: Int): Unit =
@@ -113,6 +113,7 @@ case class TracingContinuation(scope: Context, requestHandler: RequestHandler,
 
   private def finishSpan(serverSpan: Span, endTimestamp: Instant): Unit = {
     serverSpan.finish(endTimestamp)
+    requestHandler.responseSent()
   }
 
   private def finishSpanWithError(serverSpan: Span, endTimestamp: Instant, error: Option[Throwable]): Unit = {
@@ -121,6 +122,7 @@ case class TracingContinuation(scope: Context, requestHandler: RequestHandler,
       case None => serverSpan.fail(errorMessage)
     }
     finishSpan(serverSpan, endTimestamp)
+    requestHandler.responseSent()
   }
 }
 

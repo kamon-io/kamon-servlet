@@ -25,6 +25,7 @@ import kamon.servlet.v3.server.{AsyncTestServlet, JettySupport}
 import kamon.servlet.{Servlet => KServlet}
 import kamon.tag.Lookups.{plain, plainLong}
 import kamon.testkit.TestSpanReporter
+import kamon.trace.Span
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
 
@@ -71,7 +72,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
         val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "async.tracing.ok.get"
-        span.kind shouldBe "server"
+        span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
         span.tags.get(plain("http.url")) should endWith ("/async/tracing/ok")
@@ -89,8 +90,8 @@ class AsyncServerInstrumentationSpec extends WordSpec
       eventually(timeout(3 seconds)) {
         val span = testSpanReporter().nextSpan().value
 
-        span.operationName shouldBe "not-found"
-        span.kind shouldBe "server"
+        span.operationName shouldBe "unhandled"
+        span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
         span.tags.get(plain("http.url")) should endWith ("/async/tracing/not-found")
@@ -107,7 +108,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
         val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "async.tracing.error.get"
-        span.kind shouldBe "server"
+        span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
         span.tags.get(plain("http.url")) should endWith ("/async/tracing/error")
@@ -125,7 +126,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
         val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "async.tracing.exception.get"
-        span.kind shouldBe "server"
+        span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
         span.tags.get(plain("http.url")) should endWith ("/async/tracing/exception")

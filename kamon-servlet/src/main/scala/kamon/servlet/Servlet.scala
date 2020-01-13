@@ -73,7 +73,7 @@ class DefaultNameGenerator extends NameGenerator {
 
     localCache.getOrElseUpdate(s"${request.method}${request.url}", {
       // Convert paths of form GET /foo/bar/$paramname<regexp>/blah to foo.bar.paramname.blah.get
-      val uri = request.url
+      val uri = request.path
       val p = normalizePattern.replaceAllIn(uri, "/#").replace('/', '.').dropWhile(_ == '.')
       val normalisedPath = {
         if (p.lastOption.exists(_ != '.')) s"$p."

@@ -24,6 +24,7 @@ import kamon.servlet.v3.server.{JettySupport, SyncTestServlet}
 import kamon.servlet.{Servlet => KServlet}
 import kamon.tag.Lookups.{plain, plainLong}
 import kamon.testkit.TestSpanReporter
+import kamon.trace.Span
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
 
@@ -70,7 +71,7 @@ class ServerInstrumentationSpec extends WordSpec
         val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "sync.tracing.ok.get"
-        span.kind shouldBe "server"
+        span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
         span.tags.get(plain("http.url")) should endWith ("/sync/tracing/ok")
@@ -88,7 +89,7 @@ class ServerInstrumentationSpec extends WordSpec
         val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "sync.tracing.ok.#.get"
-        span.kind shouldBe "server"
+        span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
         span.tags.get(plain("http.url")) should endWith (s"/sync/tracing/ok/$hardcodedId")
@@ -105,8 +106,8 @@ class ServerInstrumentationSpec extends WordSpec
       eventually(timeout(3 seconds)) {
         val span = testSpanReporter().nextSpan().value
 
-        span.operationName shouldBe "not-found"
-        span.kind shouldBe "server"
+        span.operationName shouldBe "unhandled"
+        span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
         span.tags.get(plain("http.url")) should endWith ("/sync/tracing/not-found")
@@ -123,7 +124,7 @@ class ServerInstrumentationSpec extends WordSpec
         val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "sync.tracing.error.get"
-        span.kind shouldBe "server"
+        span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
         span.tags.get(plain("http.url")) should endWith ("/sync/tracing/error")
@@ -141,7 +142,7 @@ class ServerInstrumentationSpec extends WordSpec
         val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "sync.tracing.exception.get"
-        span.kind shouldBe "server"
+        span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
         span.tags.get(plain("http.url")) should endWith ("/sync/tracing/exception")
@@ -162,7 +163,7 @@ class ServerInstrumentationSpec extends WordSpec
         val span = testSpanReporter().nextSpan().value
 
         span.operationName shouldBe "sync.tracing.ok.get"
-        span.kind shouldBe "server"
+        span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
         span.tags.get(plain("http.url")) should endWith ("/sync/tracing/ok")
