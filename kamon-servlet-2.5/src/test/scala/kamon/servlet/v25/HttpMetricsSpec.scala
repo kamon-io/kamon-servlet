@@ -85,7 +85,7 @@ class HttpMetricsSpec extends WordSpec
 
     "track the number of responses with status code 2xx" in {
       for (_ <- 1 to 100) yield get("/sync/tracing/ok")
-      serverInstruments().requestsInformational.value(resetState = false) should be > 0L
+      serverInstruments().requestsSuccessful.value(resetState = false) should be > 0L
     }
 
     "track the number of responses with status code 4xx" in {

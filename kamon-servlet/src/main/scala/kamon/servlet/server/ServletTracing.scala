@@ -20,9 +20,9 @@ import java.time.Instant
 
 import kamon.Kamon
 import kamon.context.Context
-import kamon.instrumentation.http.{HttpMessage, HttpServerInstrumentation}
+import kamon.instrumentation.http.{HttpMessage, HttpServerInstrumentation, HttpServerMetrics}
 import kamon.instrumentation.http.HttpServerInstrumentation.RequestHandler
-import kamon.servlet.Continuation
+import kamon.servlet.{Continuation, Servlet}
 import kamon.servlet.utils.RequestContinuation
 import kamon.trace.Span
 
@@ -96,13 +96,13 @@ case class TracingContinuation(scope: Context, requestHandler: RequestHandler,
 
   def onSuccess(request: Request, response: Response)(end: Instant): Unit = {
     always(response, end)
-    finishSpan(serverSpan, end)
+    finishSpan(serverSpan, end, response)
     requestHandler.buildResponse(toResponseBuilder(response), requestHandler.context)
   }
 
   def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit = {
     always(response, end)
-    finishSpanWithError(serverSpan, end, error)
+    finishSpanWithError(serverSpan, end, error, response)
     requestHandler.buildResponse(toResponseBuilder(response), requestHandler.context)
   }
 
@@ -115,17 +115,17 @@ case class TracingContinuation(scope: Context, requestHandler: RequestHandler,
     if (code >= 500) span.fail("error")
     else if (code == 404) span.name(settings.unhandledOperationName)
 
-  private def finishSpan(serverSpan: Span, endTimestamp: Instant): Unit = {
+  private def finishSpan(serverSpan: Span, endTimestamp: Instant, response: Response): Unit = {
     serverSpan.finish(endTimestamp)
     requestHandler.responseSent()
   }
 
-  private def finishSpanWithError(serverSpan: Span, endTimestamp: Instant, error: Option[Throwable]): Unit = {
+  private def finishSpanWithError(serverSpan: Span, endTimestamp: Instant, error: Option[Throwable], response: Response): Unit = {
     error match {
       case Some(e) => serverSpan.fail(errorMessage, e)
       case None => serverSpan.fail(errorMessage)
     }
-    finishSpan(serverSpan, endTimestamp)
+    finishSpan(serverSpan, endTimestamp, response)
   }
 
   private def toResponseBuilder(response: Response): HttpMessage.ResponseBuilder[Response] = new HttpMessage.ResponseBuilder[Response] {
