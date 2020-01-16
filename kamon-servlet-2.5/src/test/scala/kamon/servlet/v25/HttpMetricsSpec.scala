@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -49,8 +49,8 @@ class HttpMetricsSpec extends WordSpec
       s"""
          |kamon {
          |  metric.tick-interval = 10 millis
-         |  servlet.server.interface = "$host"
-         |  servlet.server.port = $port
+         |  instrumentation.servlet.server.interface = "$host"
+         |  instrumentation.servlet.server.port = $port
          |}
          |
     """.stripMargin

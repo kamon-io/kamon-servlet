@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -18,8 +18,6 @@ package kamon.servlet.v3
 
 import java.time.temporal.ChronoUnit
 
-import com.typesafe.config.ConfigFactory
-import kamon.Kamon
 import kamon.servlet.v3.client.HttpClientSupport
 import kamon.servlet.v3.server.{AsyncTestServlet, JettySupport}
 import kamon.servlet.{Servlet => KServlet}
@@ -50,8 +48,8 @@ class AsyncServerInstrumentationSpec extends WordSpec
          |  metric.tick-interval = 10 millis
          |  trace.tick-interval = 10 millis
          |  trace.sampler = "always"
-         |  servlet.server.interface = "0.0.0.0"
-         |  servlet.server.port = $port
+         |  instrumentation.servlet.server.interface = "0.0.0.0"
+         |  instrumentation.servlet.server.port = $port
          |}
          |
     """.stripMargin
@@ -75,7 +73,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
         span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
-        span.tags.get(plain("http.url")) should endWith ("/async/tracing/ok")
+        span.tags.get(plain("http.url")) should endWith("/async/tracing/ok")
         span.metricTags.get(plainLong("http.status_code")) shouldBe 200
 
         span.from.until(span.to, ChronoUnit.MILLIS) shouldBe >=(servlet.durationOk.toLong)
@@ -94,7 +92,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
         span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
-        span.tags.get(plain("http.url")) should endWith ("/async/tracing/not-found")
+        span.tags.get(plain("http.url")) should endWith("/async/tracing/not-found")
         span.metricTags.get(plainLong("http.status_code")) shouldBe 404
 
         span.from.until(span.to, ChronoUnit.MILLIS) shouldBe >=(servlet.durationNotFound.toLong)
@@ -111,7 +109,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
         span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
-        span.tags.get(plain("http.url")) should endWith ("/async/tracing/error")
+        span.tags.get(plain("http.url")) should endWith("/async/tracing/error")
         span.hasError shouldBe true
         span.metricTags.get(plainLong("http.status_code")) shouldBe 500
 
@@ -129,7 +127,7 @@ class AsyncServerInstrumentationSpec extends WordSpec
         span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
-        span.tags.get(plain("http.url")) should endWith ("/async/tracing/exception")
+        span.tags.get(plain("http.url")) should endWith("/async/tracing/exception")
         span.hasError shouldBe true
         // FIXME
         //        spanTags("error.object") shouldBe TracingContinuation.errorMessage

@@ -1,5 +1,5 @@
 /* =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -13,7 +13,6 @@
  * =========================================================================================
  */
 
-val kamonVersion = "1.1.3"
 val jettyV9Version = "9.4.8.v20171121"
 val jettyV7Version = "7.6.21.v20160908"
 
@@ -32,7 +31,7 @@ val jettyServletV7    = "org.eclipse.jetty"         %  "jetty-servlet"          
 val jettyServletsV7   = "org.eclipse.jetty"         %  "jetty-servlets"         % jettyV7Version
 val httpClient        = "org.apache.httpcomponents" %  "httpclient"             % "4.5.5"
 val logbackClassic    = "ch.qos.logback"            %  "logback-classic"        % "1.0.13"
-val scalatest         = "org.scalatest"             %% "scalatest"              % "3.0.1"
+val scalatest         = "org.scalatest"             %% "scalatest"              % "3.1.0"
 
 
 lazy val root = (project in file("."))
@@ -40,13 +39,12 @@ lazy val root = (project in file("."))
   .aggregate(kamonServlet, kamonServlet25, kamonServlet3, kamonServletBench25, kamonServletBench3)
 
 val commonSettings = Seq(
-  scalaVersion := "2.12.6",
+  scalaVersion := "2.13.1",
   resolvers += Resolver.mavenLocal,
-  crossScalaVersions := Seq("2.12.6", "2.11.12", "2.10.7"),
+  crossScalaVersions := Seq("2.11.12", "2.12.10", "2.13.1"),
   scalacOptions ++= Seq(
     "-language:higherKinds",
     "-language:postfixOps") ++ (CrossVersion.partialVersion(scalaVersion.value) match {
-    case Some((2,10)) => Seq("-Yno-generic-signatures", "-target:jvm-1.7")
     case Some((2,11)) => Seq("-Ybackend:GenBCode","-Ydelambdafy:method","-target:jvm-1.8")
     case Some((2,12)) => Seq("-opt:l:method")
     case _ => Seq.empty

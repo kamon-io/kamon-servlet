@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -21,19 +21,9 @@ import javax.servlet.http.HttpServletRequest
 import kamon.servlet.server.RequestServlet
 import kamon.servlet.utils.MapUtils
 
-import scala.collection.immutable.TreeMap
-
 case class RequestServletV3(underlineRequest: HttpServletRequest,
                             override val host: String,
                             override val port: Int) extends RequestServlet {
-
-  import RequestServletV3._
-
-//  override def getMethod: String = underlineRequest.getMethod
-//
-//  override def uri: String = underlineRequest.getRequestURI
-//
-//  override def url: String = underlineRequest.getRequestURL.toString
 
   lazy val headers: Map[String, String] = {
     val headersIterator = underlineRequest.getHeaderNames
@@ -64,9 +54,9 @@ case class RequestServletV3(underlineRequest: HttpServletRequest,
 
 object RequestServletV3 {
 
-//  val headersMapPrototype: TreeMap[String, String] = {
-//    new TreeMap()(Ordering.comparatorToOrdering(String.CASE_INSENSITIVE_ORDER))
-//  }
+  //  val headersMapPrototype: TreeMap[String, String] = {
+  //    new TreeMap()(Ordering.comparatorToOrdering(String.CASE_INSENSITIVE_ORDER))
+  //  }
 
   def apply(request: ServletRequest, interface: String, port: Int): RequestServletV3 = {
     new RequestServletV3(request.asInstanceOf[HttpServletRequest], interface, port)

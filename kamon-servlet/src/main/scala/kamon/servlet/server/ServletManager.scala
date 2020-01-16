@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -28,17 +28,9 @@ trait ResponseServlet extends HttpMessage.Response {
   def write(header: String, value: String): Unit
 }
 
-trait FilterDelegation[Request  <: RequestServlet, Response <: ResponseServlet, Continuation <: RequestContinuation[Request, Response]] {
+trait FilterDelegation[Request <: RequestServlet, Response <: ResponseServlet, Continuation <: RequestContinuation[Request, Response]] {
 
   def chain(request: Request, response: Response)(continuation: Continuation): Try[Unit]
 
   def joinContinuations(continuations: RequestContinuation[Request, Response]*): Continuation
 }
-
-//trait FilterDelegation2[Request  <: HttpMessage.Request, Response <: HttpMessage.Response] {
-//  def chain(request: Request, response: Response): Try[Unit]
-//}
-
-//trait RequestContinuation[Request  <: HttpMessage.Request, Response <: HttpMessage.Response] {
-//  def chain(req: Request, res: Response): Try[Unit]
-//}

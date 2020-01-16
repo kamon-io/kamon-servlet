@@ -19,7 +19,7 @@ object KamonFilterV25Config {
 case class ErrorResponseHandler(config: Config) {
 
   def withRightStatus(response: ResponseServletV25): ResponseServletV25 = {
-    if (config.getBoolean("kamon.servlet.error-status-correction"))
+    if (config.getBoolean("kamon.instrumentation.servlet.error-status-correction"))
       new WithStatusCorrection(response.underlineResponse)
     else
       response

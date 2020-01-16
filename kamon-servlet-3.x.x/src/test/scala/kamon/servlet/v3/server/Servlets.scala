@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -34,6 +34,7 @@ case class AsyncTestServlet(defaultDuration: Long = Servlets.defaultDuration)
                             val durationNotFound: Long = defaultDuration,
                             val durationError: Long = defaultDuration,
                             val durationSlowly: Long = defaultDuration) extends HttpServlet {
+
   import Servlets._
 
 
@@ -43,13 +44,23 @@ case class AsyncTestServlet(defaultDuration: Long = Servlets.defaultDuration)
     asyncContext.start(new Runnable {
       override def run(): Unit = {
         asyncContext.getRequest.asInstanceOf[HttpServletRequest].getRequestURI match {
-          case "/async/tracing/not-found" ⇒ withDelay(durationNotFound) { resp.setStatus(404) }
-          case "/async/tracing/error"     ⇒ withDelay(durationError) { resp.setStatus(500) }
+          case "/async/tracing/not-found" ⇒ withDelay(durationNotFound) {
+            resp.setStatus(404)
+          }
+          case "/async/tracing/error" ⇒ withDelay(durationError) {
+            resp.setStatus(500)
+          }
           case "/async/tracing/exception" ⇒ throw new RuntimeException("Blowing up from internal servlet")
-          case "/async/tracing/ok"        ⇒ withDelay(durationOk) { resp.setStatus(200) }
-          case path if path == s"/async/tracing/ok/$hardcodedId" ⇒ withDelay(durationOk) { resp.setStatus(200) }
-          case "/async/tracing/slowly"    ⇒ withDelay(durationSlowly) { resp.setStatus(200) }
-          case other                      ⇒
+          case "/async/tracing/ok" ⇒ withDelay(durationOk) {
+            resp.setStatus(200)
+          }
+          case path if path == s"/async/tracing/ok/$hardcodedId" ⇒ withDelay(durationOk) {
+            resp.setStatus(200)
+          }
+          case "/async/tracing/slowly" ⇒ withDelay(durationSlowly) {
+            resp.setStatus(200)
+          }
+          case other ⇒
             resp.getOutputStream.println(s"Something wrong on the test. Endpoint unmapped: $other")
             resp.setStatus(404)
         }
@@ -60,17 +71,20 @@ case class AsyncTestServlet(defaultDuration: Long = Servlets.defaultDuration)
 }
 
 case class SyncTestServlet(defaultDelay: Long = 1000) extends HttpServlet {
+
   import Servlets._
 
   override def doGet(req: HttpServletRequest, resp: HttpServletResponse): Unit = req.getRequestURI match {
     case "/sync/tracing/not-found" ⇒ resp.setStatus(404)
-    case "/sync/tracing/error"     ⇒ resp.setStatus(500)
+    case "/sync/tracing/error" ⇒ resp.setStatus(500)
     case "/sync/tracing/exception" ⇒ throw new RuntimeException("Blowing up from internal servlet")
-    case "/sync/tracing/ok"        ⇒ resp.setStatus(200)
-    case "/sync/tracing/ok/10"        ⇒ resp.setStatus(200)
+    case "/sync/tracing/ok" ⇒ resp.setStatus(200)
+    case "/sync/tracing/ok/10" ⇒ resp.setStatus(200)
     case path if path == s"/sync/tracing/ok/$hardcodedId" ⇒ resp.setStatus(200)
-    case "/sync/tracing/slowly"    ⇒ withDelay(defaultDelay) { resp.setStatus(200) }
-    case other                     ⇒
+    case "/sync/tracing/slowly" ⇒ withDelay(defaultDelay) {
+      resp.setStatus(200)
+    }
+    case other ⇒
       resp.getOutputStream.println(s"Something wrong on the test. Endpoint unmapped: $other")
       resp.setStatus(404)
   }

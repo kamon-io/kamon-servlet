@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -16,17 +16,15 @@
 
 package kamon.servlet.v25
 
-import com.typesafe.config.ConfigFactory
-import kamon.Kamon
 import kamon.servlet.v25.client.HttpClientSupport
+import kamon.servlet.v25.server.Servlets.hardcodedId
 import kamon.servlet.v25.server.{JettySupport, SyncTestServlet}
+import kamon.servlet.{Servlet => KServlet}
+import kamon.tag.Lookups.{plain, plainLong}
+import kamon.testkit.TestSpanReporter
 import kamon.trace.Span
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
-import kamon.servlet.{Servlet => KServlet}
-import kamon.servlet.v25.server.Servlets.hardcodedId
-import kamon.testkit.TestSpanReporter
-import kamon.tag.Lookups.{plain, plainLong}
 
 import scala.concurrent.duration._
 
@@ -49,8 +47,8 @@ class ServerInstrumentationSpec extends WordSpec
          |  metric.tick-interval = 10 millis
          |  trace.tick-interval = 10 millis
          |  trace.sampler = "always"
-         |  servlet.server.interface = "0.0.0.0"
-         |  servlet.server.port = $port
+         |  instrumentation.servlet.server.interface = "$host"
+         |  instrumentation.servlet.server.port = $port
          |}
          |
     """.stripMargin
@@ -74,7 +72,7 @@ class ServerInstrumentationSpec extends WordSpec
         span.kind shouldBe Span.Kind.Server
         span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
-        span.tags.get(plain("http.url")) should endWith ("/sync/tracing/ok")
+        span.tags.get(plain("http.url")) should endWith("/sync/tracing/ok")
         span.metricTags.get(plainLong("http.status_code")) shouldBe 200
 
         span.parentId.string shouldBe ""
@@ -90,9 +88,9 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "sync.tracing.ok.#.get"
         span.kind shouldBe Span.Kind.Server
-        span.metricTags.get(plain("component"))  shouldBe KServlet.tags.serverComponent
+        span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
-        span.tags.get(plain("http.url")) should endWith (s"/sync/tracing/ok/$hardcodedId")
+        span.tags.get(plain("http.url")) should endWith(s"/sync/tracing/ok/$hardcodedId")
         span.metricTags.get(plainLong("http.status_code")) shouldBe 200
 
         span.parentId.string shouldBe ""
@@ -108,9 +106,9 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "unhandled"
         span.kind shouldBe Span.Kind.Server
-        span.metricTags.get(plain("component"))  shouldBe KServlet.tags.serverComponent
+        span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
-        span.tags.get(plain("http.url")) should endWith ("/sync/tracing/not-found")
+        span.tags.get(plain("http.url")) should endWith("/sync/tracing/not-found")
         span.metricTags.get(plainLong("http.status_code")) shouldBe 404
 
         span.parentId.string shouldBe ""
@@ -125,9 +123,9 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "sync.tracing.error.get"
         span.kind shouldBe Span.Kind.Server
-        span.metricTags.get(plain("component"))  shouldBe KServlet.tags.serverComponent
+        span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
-        span.tags.get(plain("http.url")) should endWith ("/sync/tracing/error")
+        span.tags.get(plain("http.url")) should endWith("/sync/tracing/error")
         span.hasError shouldBe true
         span.metricTags.get(plainLong("http.status_code")) shouldBe 500L
 
@@ -143,12 +141,12 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "sync.tracing.exception.get"
         span.kind shouldBe Span.Kind.Server
-        span.metricTags.get(plain("component"))  shouldBe KServlet.tags.serverComponent
+        span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
-        span.tags.get(plain("http.url")) should endWith ("/sync/tracing/exception")
+        span.tags.get(plain("http.url")) should endWith("/sync/tracing/exception")
         span.hasError shouldBe true
         //FIXME
-//        span.tags.get(plain("error.object")) shouldBe "Blowing up from internal servlet"
+        //        span.tags.get(plain("error.object")) shouldBe "Blowing up from internal servlet"
         span.metricTags.get(plainLong("http.status_code")) shouldBe 500L
 
         span.parentId.string shouldBe ""
@@ -164,9 +162,9 @@ class ServerInstrumentationSpec extends WordSpec
 
         span.operationName shouldBe "sync.tracing.ok.get"
         span.kind shouldBe Span.Kind.Server
-        span.metricTags.get(plain("component"))  shouldBe KServlet.tags.serverComponent
+        span.metricTags.get(plain("component")) shouldBe KServlet.tags.serverComponent
         span.metricTags.get(plain("http.method")) shouldBe "GET"
-        span.tags.get(plain("http.url")) should endWith ("/sync/tracing/ok")
+        span.tags.get(plain("http.url")) should endWith("/sync/tracing/ok")
         span.metricTags.get(plainLong("http.status_code")) shouldBe 200
 
         span.parentId.string shouldBe IncomingContext.SpanId
@@ -176,6 +174,7 @@ class ServerInstrumentationSpec extends WordSpec
   }
 
   object IncomingContext {
+
     import kamon.trace.SpanPropagation.B3.{Headers => B3Headers}
 
     val TraceId = "1234"

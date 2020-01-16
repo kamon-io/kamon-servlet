@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -28,12 +28,14 @@ object Servlet {
   @volatile private var _tags: Tags = Tags(Kamon.config())
 
   def generateOperationName(request: RequestServlet): String = nameGenerator.generateOperationName(request)
+
   def server: Server = _server
+
   def tags: Tags = _tags
 
   private def nameGeneratorFromConfig(config: Config): NameGenerator = {
     val dynamic = new DynamicAccess(getClass.getClassLoader)
-    val nameGeneratorFQCN = config.getString("kamon.servlet.name-generator")
+    val nameGeneratorFQCN = config.getString("kamon.instrumentation.servlet.server.name-generator")
     dynamic.createInstanceFor[NameGenerator](nameGeneratorFQCN, Nil)
   }
 
@@ -46,13 +48,14 @@ object Servlet {
   })
 
   case class Server(config: Config) {
-    val interface: String = config.getString("kamon.servlet.server.interface")
-    val port: Int = config.getInt("kamon.servlet.server.port")
+    val interface: String = config.getString("kamon.instrumentation.servlet.server.interface")
+    val port: Int = config.getInt("kamon.instrumentation.servlet.server.port")
   }
 
   case class Tags(config: Config) {
-    val serverComponent: String = config.getString("kamon.servlet.tags.server-component")
+    val serverComponent: String = config.getString("kamon.instrumentation.servlet.server.server-component")
   }
+
 }
 
 

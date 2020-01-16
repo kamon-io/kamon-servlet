@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -17,7 +17,6 @@
 package kamon.servlet.v3
 
 import javax.servlet._
-import kamon.instrumentation.http.HttpServerInstrumentation
 import kamon.servlet.KamonFilter
 import kamon.servlet.v3.server._
 

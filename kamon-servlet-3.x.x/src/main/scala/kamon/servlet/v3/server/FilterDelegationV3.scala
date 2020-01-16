@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -38,17 +38,17 @@ class FilterDelegationV3(val underlineChain: FilterChain)
 
   protected def onFinish(request: RequestServletV3, response: ResponseServletV3): (Try[Unit], ResponseProcessingContinuation) => Try[Unit] = {
     if (request.isAsync) handleAsync(request, response)
-    else                 handleSync(request, response)
+    else handleSync(request, response)
   }
 
   protected def handleAsync(request: RequestServletV3, response: ResponseServletV3)
-                         (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
+                           (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
     request.addListener(KamonAsyncListener(request, response)(continuation))
     result
   }
 
   protected def handleSync(request: RequestServletV3, response: ResponseServletV3)
-                        (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
+                          (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
     result
       .map { value =>
         continuation.onSuccess(request, response)(Kamon.clock().instant())
@@ -70,8 +70,11 @@ object FilterDelegationV3 {
 
 final case class KamonAsyncListener(request: RequestServletV3, response: ResponseServletV3)(handler: ResponseProcessingContinuation) extends AsyncListener {
   override def onError(event: AsyncEvent): Unit = handler.onError(request, response)(Kamon.clock().instant(), Option(event.getThrowable))
+
   override def onComplete(event: AsyncEvent): Unit = handler.onSuccess(request, response)(Kamon.clock().instant())
+
   override def onStartAsync(event: AsyncEvent): Unit = ()
+
   override def onTimeout(event: AsyncEvent): Unit = handler.onError(request, response)(Kamon.clock().instant(), Option(event.getThrowable))
 }
 
@@ -81,6 +84,7 @@ case class ResponseProcessingContinuation(continuations: RequestContinuation[Req
   type Response = ResponseServletV3
 
   override def onSuccess(request: Request, response: Response)(end: Instant): Unit = continuations.foreach(_.onSuccess(request, response)(end))
+
   override def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit = {
     val resp = KamonFilterV3Config.errorResponseHandler.withRightStatus(response)
     continuations.foreach(_.onError(request, resp)(end, error))
