@@ -49,7 +49,6 @@ class AsyncHttpMetricsSpec extends WordSpec
     applyConfig(
       s"""
          |kamon {
-         |  metric.tick-interval = 10 millis
          |  instrumentation.servlet.server.interface = "$host"
          |  instrumentation.servlet.server.port = $port
          |}

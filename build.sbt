@@ -13,15 +13,15 @@
  * =========================================================================================
  */
 
-val jettyV9Version = "9.4.8.v20171121"
+val jettyV9Version = "9.4.25.v20191220"
 val jettyV7Version = "7.6.21.v20160908"
 
 val kamonCore         = "io.kamon"                  %% "kamon-core"                     % "2.0.4"
 val kamonTestkit      = "io.kamon"                  %% "kamon-testkit"                  % "2.0.4"
 val kamonCommon       = "io.kamon"                  %% "kamon-instrumentation-common"   % "2.0.1"
 
-val servletApiV25     = "javax.servlet"             % "servlet-api"             % "2.5"
-val servletApiV3      = "javax.servlet"             %  "javax.servlet-api"      % "3.0.1"
+val servletApiV25     = "javax.servlet"             %  "servlet-api"            % "2.5"
+val servletApiV3      = "javax.servlet"             %  "javax.servlet-api"      % "3.1.0"
 val jettyServerV9     = "org.eclipse.jetty"         %  "jetty-server"           % jettyV9Version
 val jettyServletV9    = "org.eclipse.jetty"         %  "jetty-servlet"          % jettyV9Version
 val jettyServletsV9   = "org.eclipse.jetty"         %  "jetty-servlets"         % jettyV9Version
