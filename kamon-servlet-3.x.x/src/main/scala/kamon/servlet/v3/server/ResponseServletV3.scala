@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -21,7 +21,10 @@ import javax.servlet.http.HttpServletResponse
 import kamon.servlet.server.ResponseServlet
 
 class ResponseServletV3(val underlineResponse: HttpServletResponse) extends ResponseServlet {
-  override def status: Int = underlineResponse.getStatus
+
+  override def statusCode: Int = underlineResponse.getStatus
+
+  override def write(header: String, value: String): Unit = underlineResponse.addHeader(header, value)
 }
 
 object ResponseServletV3 {

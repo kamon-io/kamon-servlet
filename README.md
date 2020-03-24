@@ -15,10 +15,12 @@ Supported releases and dependencies are shown below.
 | kamon-servlet-2.5  | status | jdk        | scala            
 |:---------------:|:------:|:----------:|------------------
 |  1.0.0          | stable | 1.8+ | 2.10, 2.11, 2.12
+|  2.0.0          | stable | 1.8+ | 2.11, 2.12, 2.13
 
 | kamon-servlet-3.x.x  | status | jdk        | scala   
 |:---------------:|:------:|:----------:|------------------
-|  1.0.0          | stable | 1.8+       | 2.10, 2.11, 2.12  
+|  1.0.0          | stable | 1.8+       | 2.10, 2.11, 2.12
+|  2.0.0          | stable | 1.8+       | 2.11, 2.12, 2.13  
 
 To get `kamon-servlet` in your project:
 
@@ -28,7 +30,7 @@ To get `kamon-servlet` in your project:
   <dependency>
     <groupId>io.kamon</groupId>
     <artifactId>kamon-servlet-3_2.12</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
   </dependency>
 </dependencies>
 ```
@@ -36,13 +38,13 @@ To get `kamon-servlet` in your project:
 * Gradle:
 ```groovy
 dependencies {
-  compile 'io.kamon:kamon-servlet-3_2.12:1.0.0'
+  compile 'io.kamon:kamon-servlet-3_2.12:2.0.0'
 }
 ```
 
 * SBT:
 ```sbtshell
-libraryDependencies += "io.kamon" %% "kamon-servlet-3" % "1.0.0"
+libraryDependencies += "io.kamon" %% "kamon-servlet-3" % "2.0.0"
 ```
 
 

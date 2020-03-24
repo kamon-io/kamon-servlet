@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -27,10 +27,10 @@ import kamon.servlet.v3.server._
   */
 class KamonFilterV3 extends Filter with KamonFilter with OncePerRequestFilter {
 
-  override type Request           = RequestServletV3
-  override type Response          = ResponseServletV3
+  override type Request = RequestServletV3
+  override type Response = ResponseServletV3
   override type ChainContinuation = ResponseProcessingContinuation
-  override type Chain             = FilterDelegationV3
+  override type Chain = FilterDelegationV3
 
   override def init(filterConfig: FilterConfig): Unit = ()
 
@@ -41,6 +41,9 @@ class KamonFilterV3 extends Filter with KamonFilter with OncePerRequestFilter {
   }
 
   def toFilterDelegation(chain: FilterChain): Chain = FilterDelegationV3(chain)
-  def toRequestAdapter(request: ServletRequest): Request = RequestServletV3(request)
+
+  def toRequestAdapter(request: ServletRequest): Request =
+    RequestServletV3(request, instrumentation.interface(), instrumentation.port())
+
   def toResponseAdapter(response: ServletResponse): Response = ResponseServletV3(response)
 }

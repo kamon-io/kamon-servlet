@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -16,25 +16,19 @@
 
 package kamon.servlet.server
 
+import kamon.instrumentation.http.HttpMessage
 import kamon.servlet.utils.RequestContinuation
 
 import scala.util.Try
 
 
-trait RequestServlet {
+trait RequestServlet extends HttpMessage.Request
 
-  def getMethod: String
-  def uri: String
-  def url: String
-  def headers: Map[String, String]
+trait ResponseServlet extends HttpMessage.Response {
+  def write(header: String, value: String): Unit
 }
 
-trait ResponseServlet {
-
-  def status: Int
-}
-
-trait FilterDelegation[Request  <: RequestServlet, Response <: ResponseServlet, Continuation <: RequestContinuation[Request, Response]] {
+trait FilterDelegation[Request <: RequestServlet, Response <: ResponseServlet, Continuation <: RequestContinuation[Request, Response]] {
 
   def chain(request: Request, response: Response)(continuation: Continuation): Try[Unit]
 

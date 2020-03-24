@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -24,9 +24,12 @@ import javax.servlet.http.{HttpServletResponse, HttpServletResponseWrapper}
 import kamon.servlet.server.ResponseServlet
 
 class ResponseServletV25(val underlineResponse: HttpServletResponse) extends ResponseServlet {
-  override def status: Int = {
+
+  override def statusCode: Int = {
     StatusResponseExtractor.status(underlineResponse).getOrElse(ResponseServletV25.defaultStatus)
   }
+
+  override def write(header: String, value: String): Unit = underlineResponse.addHeader(header, value)
 }
 
 object ResponseServletV25 {
@@ -37,7 +40,6 @@ object ResponseServletV25 {
   def apply(response: ServletResponse): ResponseServletV25 = {
     new ResponseServletV25(ResponseWithStatusV25(response))
   }
-
 
 
 }
@@ -54,7 +56,7 @@ object StatusResponseExtractor {
   def status(response: HttpServletResponse): Option[Int] = {
     response match {
       case adapter: ResponseWithStatusV25 => Option(adapter.getStatus)
-      case _                              => tryToUseGetStatus(response)
+      case _ => tryToUseGetStatus(response)
     }
   }
 

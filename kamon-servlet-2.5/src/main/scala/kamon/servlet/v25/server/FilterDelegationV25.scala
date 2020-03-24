@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -36,7 +36,7 @@ class FilterDelegationV25(val underlineChain: FilterChain)
   }
 
   protected def handle(request: RequestServletV25, response: ResponseServletV25)
-                    (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
+                      (result: Try[Unit], continuation: ResponseProcessingContinuation): Try[Unit] = {
     result
       .map { value =>
         continuation.onSuccess(request, response)(Kamon.clock().instant())
@@ -62,6 +62,7 @@ case class ResponseProcessingContinuation(continuations: RequestContinuation[Req
   type Response = ResponseServletV25
 
   override def onSuccess(request: Request, response: Response)(end: Instant): Unit = continuations.foreach(_.onSuccess(request, response)(end))
+
   override def onError(request: Request, response: Response)(end: Instant, error: Option[Throwable]): Unit = {
     val resp = KamonFilterV25Config.errorResponseHandler.withRightStatus(response)
     continuations.foreach(_.onError(request, resp)(end, error))

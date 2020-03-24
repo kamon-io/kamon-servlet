@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -17,8 +17,10 @@
 package kamon.servlet
 
 import kamon.Kamon
+import kamon.instrumentation.http.HttpServerInstrumentation
 import kamon.servlet.server._
 import kamon.servlet.utils.RequestContinuation
+import kamon.servlet.{Servlet => KamonServlet}
 
 
 /**
@@ -26,21 +28,22 @@ import kamon.servlet.utils.RequestContinuation
   */
 trait KamonFilter {
 
-  type Request           <: RequestServlet
-  type Response          <: ResponseServlet
+  type Request <: RequestServlet
+  type Response <: ResponseServlet
   type ChainContinuation <: RequestContinuation[Request, Response]
-  type Chain             <: FilterDelegation[Request, Response, ChainContinuation]
+  type Chain <: FilterDelegation[Request, Response, ChainContinuation]
 
-  val servletMetrics: ServletMetrics = ServletMetrics()
-  val servletTracing: ServletTracing.type = ServletTracing
+  lazy val instrumentation: HttpServerInstrumentation = {
+    val httpServerConfig = Kamon.config().getConfig("kamon.instrumentation.servlet")
+    HttpServerInstrumentation.from(httpServerConfig, KamonServlet.tags.serverComponent,
+      KamonServlet.server.interface, KamonServlet.server.port)
+  }
+
+  lazy val servletTracing: ServletTracing = ServletTracing(instrumentation)
 
   def executeAround(request: Request, response: Response, next: Chain): Unit = {
-    val start = Kamon.clock().instant()
-
-    servletMetrics.withMetrics(start, request, response) { (metricsContinuation: MetricsContinuation) =>
-      servletTracing.withTracing(request, response) { (tracingContinuation: TracingContinuation) =>
-        next.chain(request, response)(next.joinContinuations(tracingContinuation, metricsContinuation))
-      }
+    servletTracing.withTracing(request, response) { tracingContinuation: TracingContinuation =>
+      next.chain(request, response)(next.joinContinuations(tracingContinuation))
     } get
 
   }

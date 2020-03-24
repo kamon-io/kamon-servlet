@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -19,39 +19,38 @@ package kamon.servlet.v25.server
 import javax.servlet.ServletRequest
 import javax.servlet.http.HttpServletRequest
 import kamon.servlet.server.RequestServlet
-import kamon.trace.SpanCodec
+import kamon.servlet.utils.MapUtils
 import org.slf4j.LoggerFactory
 
-import scala.collection.immutable.TreeMap
+case class RequestServletV25(underlineRequest: HttpServletRequest,
+                             override val host: String,
+                             override val port: Int) extends RequestServlet {
 
-case class RequestServletV25(underlineRequest: HttpServletRequest) extends RequestServlet {
   import RequestServletV25._
 
-  override def getMethod: String = underlineRequest.getMethod
-
-  override def uri: String = underlineRequest.getRequestURI
+  lazy val headers: Map[String, String] = {
+    MapUtils.caseInsensitiveMap(decodeHeaders(underlineRequest))
+  }
 
   override def url: String = underlineRequest.getRequestURL.toString
 
-  override def headers: Map[String, String] = {
-    headersMapPrototype ++ decodeHeaders(underlineRequest)
-  }
+  override def path: String = underlineRequest.getRequestURI
+
+  override def method: String = underlineRequest.getMethod
+
+  override def read(header: String): Option[String] = headers.get(header)
+
+  override def readAll(): Map[String, String] = headers
 }
 
 object RequestServletV25 {
-  import SpanCodec.B3.{Headers => B3Headers}
+
+  import kamon.trace.SpanPropagation.B3.{Headers => B3Headers}
 
   private val log = LoggerFactory.getLogger(classOf[RequestServletV25])
 
-  val headersMapPrototype: TreeMap[String, String] = {
-    val insensitiveCaseOrdering = new Ordering[String] {
-      override def compare(x: String, y: String): Int = x.compareToIgnoreCase(y)
-    }
-    new TreeMap()(insensitiveCaseOrdering)
-  }
-
-  def apply(request: ServletRequest): RequestServletV25 = {
-    new RequestServletV25(request.asInstanceOf[HttpServletRequest])
+  def apply(request: ServletRequest, interface: String, port: Int): RequestServletV25 = {
+    new RequestServletV25(request.asInstanceOf[HttpServletRequest], interface, port)
   }
 
   def decodeHeaders(request: HttpServletRequest): Map[String, String] = {

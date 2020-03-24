@@ -2,8 +2,9 @@ package kamon.servlet.v25
 
 import com.typesafe.config.Config
 import javax.servlet.http.HttpServletResponse
+import kamon.Configuration.OnReconfigureHook
+import kamon.Kamon
 import kamon.servlet.v25.server.ResponseServletV25
-import kamon.{Kamon, OnReconfigureHook}
 
 object KamonFilterV25Config {
   @volatile var errorResponseHandler: ErrorResponseHandler = ErrorResponseHandler(Kamon.config)
@@ -18,7 +19,7 @@ object KamonFilterV25Config {
 case class ErrorResponseHandler(config: Config) {
 
   def withRightStatus(response: ResponseServletV25): ResponseServletV25 = {
-    if (config.getBoolean("kamon.servlet.error-status-correction"))
+    if (config.getBoolean("kamon.instrumentation.servlet.error-status-correction"))
       new WithStatusCorrection(response.underlineResponse)
     else
       response
@@ -27,10 +28,11 @@ case class ErrorResponseHandler(config: Config) {
   private final class WithStatusCorrection(override val underlineResponse: HttpServletResponse)
     extends ResponseServletV25(underlineResponse) {
 
-    override def status: Int = {
-      val s = super.status
+    override def statusCode: Int = {
+      val s = super.statusCode
       if (s == 200) 500
       else s
     }
   }
+
 }

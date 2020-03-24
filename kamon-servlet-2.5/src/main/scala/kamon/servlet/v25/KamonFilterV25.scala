@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -27,10 +27,10 @@ import kamon.servlet.v25.server._
   */
 class KamonFilterV25 extends Filter with KamonFilter with OncePerRequestFilter {
 
-  override type Request           = RequestServletV25
-  override type Response          = ResponseServletV25
+  override type Request = RequestServletV25
+  override type Response = ResponseServletV25
   override type ChainContinuation = ResponseProcessingContinuation
-  override type Chain             = FilterDelegationV25
+  override type Chain = FilterDelegationV25
 
   override def init(filterConfig: FilterConfig): Unit = ()
 
@@ -41,6 +41,10 @@ class KamonFilterV25 extends Filter with KamonFilter with OncePerRequestFilter {
   }
 
   def toFilterDelegation(chain: FilterChain): Chain = FilterDelegationV25(chain)
-  def toRequestAdapter(request: ServletRequest): Request = RequestServletV25(request)
+
+  def toRequestAdapter(request: ServletRequest): Request = {
+    RequestServletV25(request, instrumentation.interface(), instrumentation.port())
+  }
+
   def toResponseAdapter(response: ServletResponse): Response = ResponseServletV25(response)
 }

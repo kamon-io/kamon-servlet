@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -51,6 +51,10 @@ class JettyServer(socketAddress: InetSocketAddress = new InetSocketAddress(0)) {
     this
   }
 
+  def host: String = {
+    server.getConnectors()(0).getHost
+  }
+
   def selectedPort: Int = {
     server.getConnectors()(0).getLocalPort
   }
@@ -69,6 +73,8 @@ trait JettySupport {
   def stopServer(): Unit = {
     jetty.foreach(_.stop())
   }
+
+  def host: String = jetty.get.host
 
   def port: Int = jetty.get.selectedPort
 }

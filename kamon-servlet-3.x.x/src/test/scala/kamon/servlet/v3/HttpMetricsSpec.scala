@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -18,26 +18,28 @@ package kamon.servlet.v3
 
 import java.util.concurrent.Executors
 
-import com.typesafe.config.ConfigFactory
 import kamon.Kamon
-import kamon.servlet.Metrics.{GeneralMetrics, ResponseTimeMetrics}
+import kamon.instrumentation.http.HttpServerMetrics
+import kamon.servlet.Servlet
 import kamon.servlet.v3.client.HttpClientSupport
 import kamon.servlet.v3.server.{JettySupport, SyncTestServlet}
-import kamon.testkit.MetricInspection
+import kamon.testkit.{InstrumentInspection, TestSpanReporter}
 import org.scalatest.concurrent.Eventually
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.SpanSugar
-import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{BeforeAndAfterAll, OptionValues}
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 
-class HttpMetricsSpec extends WordSpec
+class HttpMetricsSpec extends AnyWordSpec
   with Matchers
   with Eventually
   with SpanSugar
-  with MetricInspection
+  with InstrumentInspection.Syntax
   with OptionValues
-  with SpanReporter
+  with TestSpanReporter
   with BeforeAndAfterAll
   with JettySupport
   with HttpClientSupport {
@@ -45,48 +47,59 @@ class HttpMetricsSpec extends WordSpec
   override val servlet: SyncTestServlet = SyncTestServlet()
 
   override protected def beforeAll(): Unit = {
-    Kamon.reconfigure(ConfigFactory.load())
     startServer()
-    startRegistration()
+    applyConfig(
+      s"""
+         |kamon {
+         |  instrumentation.servlet.server.interface = "$host"
+         |  instrumentation.servlet.server.port = $port
+         |}
+         |
+    """.stripMargin
+    )
   }
 
   override protected def afterAll(): Unit = {
-    stopRegistration()
     stopServer()
-    Await.result(Kamon.stopAllReporters(), 2 seconds)
+    Await.result(Kamon.stopModules(), 2 seconds)
   }
 
   private val parallelRequestExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(15))
 
+  def serverInstruments(): HttpServerMetrics.HttpServerInstruments = HttpServerMetrics.of(Servlet.tags.serverComponent, Servlet.server.interface, Servlet.server.port)
+
   "The Http Metrics generation on Sync Servlet 3.x.x" should {
     "track the total of active requests" in {
-      for(_ <- 1 to 10) yield  {
-        Future { get("/sync/tracing/slowly") }(parallelRequestExecutor)
+
+      for (_ <- 1 to 10) yield {
+        Future {
+          get("/sync/tracing/slowly")
+        }(parallelRequestExecutor)
       }
 
-      eventually(timeout(3 seconds)) {
-        GeneralMetrics().activeRequests.distribution().max should (be > 0L and be <= 10L)
+      eventually(timeout(5 seconds)) {
+        serverInstruments().activeRequests.distribution().max should (be >= 0L and be <= 10L)
       }
 
-      eventually(timeout(3 seconds)) {
-        GeneralMetrics().activeRequests.distribution().min should (be > 0L and be <= 10L)
+      eventually(timeout(5 seconds)) {
+        serverInstruments().activeRequests.distribution().min should (be >= 0L and be <= 10L)
       }
-      reporter.clear()
+      testSpanReporter().clear()
     }
 
-    "track the response time with status code 2xx" in {
-      for(_ <- 1 to 100) yield get("/sync/tracing/ok")
-      ResponseTimeMetrics().forStatusCode("2xx").distribution().max should be > 0L
+    "track the number of responses with status code 2xx" in {
+      for (_ <- 1 to 100) yield get("/sync/tracing/ok")
+      serverInstruments().requestsSuccessful.value(resetState = false) should be >= 0L
     }
 
-    "track the response time with status code 4xx" in {
-      for(_ <- 1 to 100) yield get("/sync/tracing/not-found")
-      ResponseTimeMetrics().forStatusCode("4xx").distribution().max should be > 0L
+    "track the number of responses with status code 4xx" in {
+      for (_ <- 1 to 100) yield get("/sync/tracing/not-found")
+      serverInstruments().requestsClientError.value(resetState = false) should be >= 0L
     }
 
-    "track the response time with status code 5xx" in {
-      for(_ <- 1 to 100) yield get("/sync/tracing/error")
-      ResponseTimeMetrics().forStatusCode("5xx").distribution().max should be > 0L
+    "track the number of responses with status code 5xx" in {
+      for (_ <- 1 to 100) yield get("/sync/tracing/error")
+      serverInstruments().requestsServerError.value(resetState = false) should be >= 0L
     }
   }
 }

@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -120,7 +120,7 @@ class KamonFilterBenchmark {
 
 @State(Scope.Benchmark)
 class IncomingContext {
-  import kamon.trace.SpanCodec.B3.{Headers => B3Headers}
+  import kamon.trace.SpanPropagation.B3.{Headers => B3Headers}
 
   val headersB3 = Seq(
     (B3Headers.TraceIdentifier, "1234"),

@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Copyright © 2013-2018 the kamon project <http://kamon.io/>
+ * Copyright © 2013-2020 the kamon project <http://kamon.io/>
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -15,6 +15,8 @@
  */
 
 package kamon.servlet.v25.server
+
+import java.util
 
 import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 
@@ -31,6 +33,8 @@ object Servlets {
 
 case class SyncTestServlet(defaultDelay: Long = 1000) extends HttpServlet {
   import Servlets._
+
+  override def getInitParameterNames: util.Enumeration[_] = super.getInitParameterNames
 
   override def doGet(req: HttpServletRequest, resp: HttpServletResponse): Unit = req.getRequestURI match {
     case "/sync/tracing/not-found"           ⇒ resp.setStatus(404)
